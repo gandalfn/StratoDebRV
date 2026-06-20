@@ -1,0 +1,44 @@
+{
+    "name": "UBoot",
+    "url": "https://github.com/spacemit-com/uboot-2022.10.git",
+    "rev": "k3-br-v1.0.y",
+    "defconfig": "k3_defconfig",
+    "patches": [
+        "001-SpacemiT-K3-Fixups.patch",
+        "002-Update-SpacemiT-K3-defconfig.patch",
+        "008-Fixup-circular-deps.patch"
+    ],
+    "files": {
+        "{recipePath}/k3.env": "{sourcePath}/board/spacemit/k3/k3.env",
+        "{sourcePath}/../../opensbi/src/build/platform/generic/firmware/fw_dynamic.itb": "{sourcePath}"
+    },
+    "debian-package": {
+        "name": "u-boot-pico-itx-k3",
+        "version": "2022.10-0stratodeb1",
+        "arch": "riscv64",
+        "description": "U-Boot for SpacemiT K3",
+        "preinst": [
+            "rm -fdr /usr/lib/u-boot",
+            "rm -fdr /usr/lib/u-boot-pico-itx-k3"
+        ],
+        "postinst": [
+            "if [ -e /usr/lib/u-boot-pico-itx-k3/flash.sh ]; then",
+            "    chmod +x /usr/lib/u-boot-pico-itx-k3/flash.sh",
+            "fi",
+            "if [ -d /usr/lib/u-boot-pico-itx-k3 ]; then",
+            "    ln -s /usr/lib/u-boot-pico-itx-k3 /usr/lib/u-boot",
+            "fi"
+        ],
+        "files": {
+            "{sourcePath}/bootinfo_block.bin": "{targetPath}/usr/lib/u-boot-pico-itx-k3/bootinfo_block.bin",
+            "{sourcePath}/bootinfo_spinand.bin": "{targetPath}/usr/lib/u-boot-pico-itx-k3/bootinfo_spinand.bin",
+            "{sourcePath}/bootinfo_spinor.bin": "{targetPath}/usr/lib//u-boot-pico-itx-k3/bootinfo_spinor.bin",
+            "{sourcePath}/FSBL.bin": "{targetPath}/usr/lib/u-boot-pico-itx-k3/FSBL.bin",
+            "{sourcePath}/fw_dynamic.itb": "{targetPath}/usr/lib/u-boot-pico-itx-k3/fw_dynamic.bin",
+            "{sourcePath}/u-boot.itb": "{targetPath}/usr/lib/u-boot-pico-itx-k3/u-boot.bin",
+            "{sourcePath}/u-boot-env-default.bin": "{targetPath}/usr/lib/u-boot-pico-itx-k3/u-boot-env-default.bin",
+            "{recipePath}/firmware/esos.itb": "{targetPath}/usr/lib/u-boot-pico-itx-k3/esos.bin",
+            "{recipePath}/firmware/flash.sh": "{targetPath}/usr/lib/u-boot-k3-picoitx/flash.sh"
+        }
+    }
+}

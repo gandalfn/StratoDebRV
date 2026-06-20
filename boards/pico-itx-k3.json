@@ -1,0 +1,8 @@
+{
+    "name": "pico-itx-k3",
+    "version": "0.0.1",
+    "strata": [
+        "Toolchain",
+        "Firmware"
+    ]
+}

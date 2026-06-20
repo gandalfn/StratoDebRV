@@ -1,0 +1,7 @@
+{
+    "name": "OpenSBI",
+    "url": "https://github.com/spacemit-com/opensbi.git",
+    "rev": "k3-br-v1.0.y",
+    "platform": "generic",
+    "defconfig": "k3_defconfig"
+}

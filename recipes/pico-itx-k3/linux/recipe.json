@@ -1,0 +1,15 @@
+{
+    "name": "Linux",
+    "version": "6.18.3",
+    "url": "https://github.com/spacemit-com/linux-6.18.git",
+    "rev": "k3-br-v1.0.y",
+    "arch": "riscv",
+    "defconfig": "k3_defconfig",
+    "patches": [
+        "001-device-tree-overlay-support.patch",
+        "002-scripts-Makefile.package-PHONY-intdeb-pkg.patch"
+    ],
+    "files": {
+        "{recipePath}/k3_defconfig": "{sourcePath}/arch/riscv/configs/k3_defconfig"
+    }
+}
