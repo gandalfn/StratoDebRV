@@ -40,7 +40,7 @@ class Linux(Recipe):
     def configure(self) -> bool:
         self.log.info(f"Configuring Linux...")
         if not self.isDone(Step.CONFIGURE):
-            toolchain = self.board["Toolchain"]
+            toolchain = self.stratum.board["Toolchain"]
             if self.runner.run([
                                    "make", "-C", f"{self.sourcePath}", 
                                    f"ARCH={self.__arch}",
@@ -62,7 +62,7 @@ class Linux(Recipe):
     def build(self) -> bool:
         self.log.info(f"Building Linux...")
         if not self.isDone(Step.BUILD):
-            toolchain = self.board["Toolchain"]
+            toolchain = self.stratum.board["Toolchain"]
             if self.runner.run([
                                    "make", "-C", f"{self.sourcePath}", 
                                    f"-j{os.cpu_count()}",
@@ -73,7 +73,7 @@ class Linux(Recipe):
                                    f'KBUILD_BUILD_USER=gandalfn',
                                    f'KBUILD_BUILD_HOST=gondor.com',
                                    f'KDEB_COMPRESS=xz',
-                                   f'KERNELRELEASE={self.__version[0]}.{self.__version[1]}+{self.board.name}',
+                                   f'KERNELRELEASE={self.__version[0]}.{self.__version[1]}+{self.stratum.board.name}',
                                    f'KDEB_PKGVERSION={self.__version[0]}.{self.__version[1]}.{self.__version[2]}',
                                    f'bindeb-pkg'
                                 ], 

@@ -22,8 +22,8 @@
             "rm -fdr /usr/lib/u-boot-pico-itx-k3"
         ],
         "postinst": [
-            "if [ -e /usr/lib/u-boot-pico-itx-k3/flash.sh ]; then",
-            "    chmod +x /usr/lib/u-boot-pico-itx-k3/flash.sh",
+            "if [ -e /usr/lib/u-boot-pico-itx-k3/flash ]; then",
+            "    chmod +x /usr/lib/u-boot-pico-itx-k3/flash",
             "fi",
             "if [ -d /usr/lib/u-boot-pico-itx-k3 ]; then",
             "    ln -s /usr/lib/u-boot-pico-itx-k3 /usr/lib/u-boot",
@@ -38,7 +38,7 @@
             "{sourcePath}/u-boot.itb": "{targetPath}/usr/lib/u-boot-pico-itx-k3/u-boot.bin",
             "{sourcePath}/u-boot-env-default.bin": "{targetPath}/usr/lib/u-boot-pico-itx-k3/u-boot-env-default.bin",
             "{recipePath}/firmware/esos.itb": "{targetPath}/usr/lib/u-boot-pico-itx-k3/esos.bin",
-            "{recipePath}/firmware/flash.sh": "{targetPath}/usr/lib/u-boot-k3-picoitx/flash.sh"
+            "{recipePath}/firmware/flash": "{targetPath}/usr/lib/u-boot-k3-picoitx/flash"
         }
     }
 }

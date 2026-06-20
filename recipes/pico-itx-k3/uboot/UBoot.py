@@ -40,7 +40,7 @@ class UBoot(Recipe):
         
         self.log.info(f"Configuring U-Boot...")
         if not self.isDone(Step.CONFIGURE):
-            toolchain = self.board["Toolchain"]
+            toolchain = self.stratum.board["Toolchain"]
             Fs.mkdir(self.buildPath)
             if self.runner.run([
                                    "make", "-C", f"{self.sourcePath}", 
@@ -62,7 +62,7 @@ class UBoot(Recipe):
     def build(self) -> bool:
         self.log.info(f"Building U-Boot...")
         if not self.isDone(Step.BUILD):
-            toolchain = self.board["Toolchain"]
+            toolchain = self.stratum.board["Toolchain"]
             os.makedirs(self.buildPath, exist_ok=True)
 
             if not self.runner.run([

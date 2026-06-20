@@ -34,7 +34,7 @@ class OpenSBI(Recipe):
     def build(self) -> bool:
         self.log.info(f"Building OpenSBI...")
         if not self.isDone(Step.BUILD):
-            toolchain = self.board["Toolchain"]
+            toolchain = self.stratum.board["Toolchain"]
             os.makedirs(self.buildPath, exist_ok=True)
             if self.runner.run([
                                    "make", "-C", f"{self.sourcePath}",

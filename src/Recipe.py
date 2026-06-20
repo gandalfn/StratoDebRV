@@ -32,12 +32,12 @@ class Recipe:
         self.__git = Git(f"{context}.Recipe.{name}")
         self.__runner = Runner(f"{context}.Recipe.{name}")
         self.__root = root
-        self.__board = stratum.board
-        self.__stamps = Stamp(f"{root}/build/{self.__board.name}")
+        self.__stratum = stratum
+        self.__stamps = Stamp(f"{root}/build/{self.__stratum.board.name}")
 
-        self.__recipePath = f"{self.__root}/recipes/{self.__board.name}/{name}"
-        self.__buildPath = f"{self.__root}/build/{self.__board.name}/{name}/build"
-        self.__sourcePath = f"{self.__root}/build/{self.__board.name}/{name}/src"
+        self.__recipePath = f"{self.__root}/recipes/{self.__stratum.board.name}/{name}"
+        self.__buildPath = f"{self.__root}/build/{self.__stratum.board.name}/{name}/build"
+        self.__sourcePath = f"{self.__root}/build/{self.__stratum.board.name}/{name}/src"
         self.__patchPath = f"{self.__recipePath}/patches"
 
         configFile = f"{self.__recipePath}/recipe.json"
@@ -62,8 +62,8 @@ class Recipe:
         return self.__root
     
     @property
-    def board(self):
-        return self.__board
+    def stratum(self):
+        return self.__stratum
     
     @property
     def runner(self):

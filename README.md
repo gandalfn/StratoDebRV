@@ -213,7 +213,7 @@ class OpenSBI(Recipe):
 
     def build(self) -> bool:
         if not self.isDone(Step.BUILD):
-            toolchain = self.board["Toolchain"]
+            toolchain = self.stratum.board["Toolchain"]
             # Custom build logic
             if self.runner.run([...], self.buildPath, {...}):
                 self.done(Step.BUILD)

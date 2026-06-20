@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""
+U-Boot flashing script for Spacemit pico-itx-k3 (RISC-V)
+Translated from: https://github.com/pyavitz/debian-image-builder
+"""
+
+import os
+import sys
+import subprocess
+import re
+import time
+from pathlib import Path
+
+FAMILY = "pico-itx-k3"
+DEFAULT_MOTD = "Flashing U-Boot for Spacemit K3"
+UBOOT_DIR = Path("/usr/lib/u-boot")
+MMC_PATTERN = re.compile(r'^/dev/(mmcblk0|mmcblk1|mmcblk2)$')
+VERBOSITY = 0  # Set to 1 for debug output
+
+class FlashError(Exception):
+    """Custom exception for flashing failures"""
+    pass
+
+def run(cmd: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
+    """Execute shell command with error handling"""
+    if VERBOSITY:
+        print(f"[DEBUG] {cmd}", file=sys.stderr)
+    try:
+        return subprocess.run(
+            cmd,
+            shell=True,
+            check=check,
+            capture_output=capture,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise FlashError(f"Command failed: {cmd}\nError: {e.stderr}") from e
+
+def error(message: str) -> None:
+    """Display error message and exit"""
+    print(f"ERROR: {message}", file=sys.stderr)
+    sys.exit(1)
+
+def getMMCSource() -> str:
+    """Get the source device for root filesystem (e.g., /dev/mmcblk0)"""
+    try:
+        result = run("findmnt -v -n -o SOURCE /")
+        mmc = result.stdout.strip()
+        if mmc.endswith(('p1', 'p2', 'p3', 'p4', 'p5')):
+            mmc = mmc[:-2]
+        return mmc
+    except FlashError:
+        error("Could not find device node.")
+
+def isEMMC(mmcDevice: str) -> bool:
+    """Check if device is eMMC (has boot0 partition)"""
+    return Path(f"{mmcDevice}boot0").exists()
+
+def showTarget(emmc: bool, mmc: str) -> None:
+    """Display target device information"""
+    deviceType = "eMMC" if emmc else "SDCARD"
+    print(f"{FAMILY.upper()}:")
+    print(f"{DEFAULT_MOTD.upper()}")
+    print(f"── {deviceType}: {mmc}")
+
+def flashUBoot(uBootDir: Path, emmc: bool, mmcDevice: str) -> None:
+    """Flash U-Boot binaries to the target device"""
+    requiredFiles = [
+        "bootinfo_emmc.bin",
+        "u-boot.bin",
+        "fw_dynamic.bin",
+        "FSBL.bin"
+    ]
+
+    for file in requiredFiles:
+        if not (uBootDir / file).is_file():
+            error(f"Required file missing: {file}")
+
+    time.sleep(0.5)
+
+    if emmc:
+        try:
+            result = run("ls /dev/mmcblk*boot0")
+            boot0Devices = [d.strip() for d in result.stdout.split('\n') if d.strip()]
+            if not boot0Devices:
+                error("Could not find boot0 partition for eMMC")
+
+            boot0Device = boot0Devices[0]
+            deviceName = boot0Device.replace('/dev/', '')
+
+            forceRoPath = Path(f"/sys/block/{deviceName}/force_ro")
+            if forceRoPath.exists():
+                try:
+                    forceRoPath.write_text('0')
+                except PermissionError:
+                    run(f"echo 0 | tee /sys/block/{deviceName}/force_ro")
+
+            time.sleep(0.5)
+            run(f"dd if={uBootDir / 'bootinfo_emmc.bin'} of={boot0Device} bs=512 conv=notrunc")
+            run(f"dd if={uBootDir / 'FSBL.bin'} of={boot0Device} bs=512 seek=1 conv=notrunc")
+            target = boot0Device
+        except FlashError as e:
+            error(f"eMMC flashing failed: {e}")
+    else:
+        target = mmcDevice
+
+    run(f"dd if={uBootDir / 'fw_dynamic.bin'} of={target} bs=512 seek=1280 conv=notrunc")
+    run(f"dd if={uBootDir / 'u-boot.bin'} of={target} bs=512 seek=2048 conv=notrunc")
+
+def updateExtlinuxConf() -> None:
+    """Update extlinux.conf with current PARTUUID"""
+    try:
+        rootfs = run("findmnt -v -n -o SOURCE /").stdout.strip()
+        result = run(f"blkid -o export {rootfs}")
+
+        partuuid = None
+        for line in result.stdout.split('\n'):
+            if line.startswith('PARTUUID='):
+                partuuid = line.split('=', 1)[1]
+                break
+
+        if partuuid:
+            extlinuxPath = Path("/boot/extlinux/extlinux.conf")
+            if extlinuxPath.exists():
+                content = extlinuxPath.read_text()
+                updated = re.sub(
+                    r'root=PARTUUID=[^\s]+',
+                    f'root=PARTUUID={partuuid}',
+                    content
+                )
+                extlinuxPath.write_text(updated)
+    except (FlashError, FileNotFoundError, PermissionError) as e:
+        print(f"Warning: Could not update extlinux.conf: {e}", file=sys.stderr)
+
+def main() -> None:
+    if os.geteuid() != 0:
+        error("Please run this as root or with sudo privileges.")
+
+    if not UBOOT_DIR.is_dir():
+        error("Could not find u-boot directory.")
+    
+    uBootDir = UBOOT_DIR
+
+    mmc = getMMCSource()
+
+    if not MMC_PATTERN.match(mmc):
+        error("Invalid device node.")
+
+    emmc = isEMMC(mmc)
+    showTarget(emmc, mmc)
+    flashUBoot(uBootDir, emmc, mmc)
+    
+    time.sleep(0.5)
+    
+    updateExtlinuxConf()
+
+    print("\nYou may now reboot.")
+    os.sync()
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()

@@ -66,4 +66,4 @@ class Git:
             return self.__runner.run(apply)
         
         self.__log.warning("Patch already applied or has conflicts.")
-        return True
+        return False
