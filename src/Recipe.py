@@ -36,8 +36,9 @@ class Recipe:
         self.__stamps = Stamp(f"{root}/build/{self.__stratum.board.name}")
 
         self.__recipePath = f"{self.__root}/recipes/{self.__stratum.board.name}/{name}"
-        self.__buildPath = f"{self.__root}/build/{self.__stratum.board.name}/{name}/build"
-        self.__sourcePath = f"{self.__root}/build/{self.__stratum.board.name}/{name}/src"
+        self.__recipeBuildPath = f"{self.__root}/build/{self.__stratum.board.name}/{name}"
+        self.__buildPath = f"{self.__recipeBuildPath}/build"
+        self.__sourcePath = f"{self.__recipeBuildPath}/src"
         self.__patchPath = f"{self.__recipePath}/patches"
 
         configFile = f"{self.__recipePath}/recipe.json"
@@ -154,3 +155,7 @@ class Recipe:
                     return False
             self.__stamps.done(f"{self.__log.context}", Step.INSTALL)
         return True
+    
+    def cleanup(self) -> bool:
+        self.log.info(f"Cleaning up {self.__recipeBuildPath}...")
+        return Fs.rmDir(f"{self.__recipeBuildPath}")

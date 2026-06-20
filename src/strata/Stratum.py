@@ -159,6 +159,10 @@ class Stratum:
                 if not Fs.cp(src, dst):
                     self.__log.error(f"Failed to copy {src} to {dst}")
                     return False
+                
+            for recipe in self.recipes:
+                if not recipe.cleanup():
+                    return False
             self.__stamps.done(f"{self.__log.context}", Step.INSTALL)
         return True
     
