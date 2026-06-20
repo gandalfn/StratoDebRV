@@ -17,6 +17,7 @@
 
 import os
 import shutil
+import glob
 
 from src.common.Log import Log
 
@@ -30,14 +31,43 @@ class Fs:
             return False
 
     @staticmethod
+    def hasWildcard(pattern: str) -> bool:
+        """Check if pattern contains wildcard characters (* ? [])"""
+        return any(c in pattern for c in ['*', '?', '['])
+
+    @staticmethod
     def cp(src: str, dst: str) -> bool:
         try:
+            if Fs.hasWildcard(src):
+                matches = glob.glob(src)
+                if not matches:
+                    return False
+
+                if len(matches) > 1 and not os.path.isdir(dst):
+                    return False
+
+                for match in matches:
+                    if os.path.isdir(match):
+                        dest_path = os.path.join(dst, os.path.basename(match)) if os.path.isdir(dst) else dst
+                        shutil.copytree(match, dest_path, dirs_exist_ok=True)
+                    else:
+                        dest_path = dst
+                        if os.path.isdir(dst):
+                            dest_path = os.path.join(dst, os.path.basename(match))
+                        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        shutil.copy2(match, dest_path)
+                return True
+
             dstDir = os.path.dirname(dst) if not os.path.isdir(dst) else dst
             if dstDir:
                 os.makedirs(dstDir, exist_ok=True)
 
-            shutil.copy2(src, dst)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+            else:
+                shutil.copy2(src, dst)
             return True
+
         except Exception as e:
             return False
 

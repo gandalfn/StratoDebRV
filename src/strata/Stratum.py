@@ -22,6 +22,7 @@ import importlib.util
 from src.common.Log import Log
 from src.Recipe import Recipe
 from src.system.Stamp import Stamp, Step
+from src.system.Fs import Fs
 
 class Stratum:
     def __init__(self, context: str, root: str, board):
@@ -30,11 +31,13 @@ class Stratum:
         self.__root = root
         self.__board = board
         self.__stamps = Stamp(f"{root}/build/{self.__board.name}")
+        self.__stratumPath = f"{root}/strata/{self.__board.name}/{context}"
 
-        configFile = f"{root}/strata/{self.__board.name}/{context}/stratum.json"
+        configFile = f"{self.__stratumPath}/stratum.json"
         with open(configFile, "r") as f:
             self.__config = json.load(f)
 
+        self.__install = self.__config.get("install", {})
         self.__recipes = {}
 
         recipesList = self.__config.get("recipes", [])
@@ -132,12 +135,30 @@ class Stratum:
                     return False
                 if not recipe.build():
                     return False
+                if not recipe.install(f"{self.__root}/output/{self.__board.name}/{self.__name}"):
+                    return False
             self.__stamps.done(f"{self.__log.context}", Step.BUILD)
         return True
     
     def install(self) -> bool:
         self.__log.info(f"Installing stratum {self.__board.name}...")
         if not self.__stamps.isDone(f"{self.__log.context}", Step.INSTALL):
+            files = self.__install.get('files', {})
+            for srcFile, dstFile in files.items():
+                src = srcFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
+                dst = dstFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
+                self.__log.info(f"Copying {src} to {dst}...")
+                if not Fs.cp(src, dst):
+                    self.__log.error(f"Failed to copy {src} to {dst}")
+                    return False
+            packages = self.__install.get('packages', {})
+            for srcFile, dstFile in packages.items():
+                src = srcFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
+                dst = dstFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
+                self.__log.info(f"Copying {src} to {dst}...")
+                if not Fs.cp(src, dst):
+                    self.__log.error(f"Failed to copy {src} to {dst}")
+                    return False
             self.__stamps.done(f"{self.__log.context}", Step.INSTALL)
         return True
     

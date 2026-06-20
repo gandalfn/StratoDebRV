@@ -15,5 +15,11 @@
             "url": "https://github.com/spacemit-com/linux-6.18.git",
             "rev": "k3-br-v1.0.y"
         }
+    },
+    "install": {
+        "files": {
+            "{stratumPath}/partition_4M.json": "{outputPath}/partition_4M.json",
+            "{stratumPath}/flash-spi-howto.txt": "{outputPath}/flash-spi-howto.txt"
+        }
     }
 }

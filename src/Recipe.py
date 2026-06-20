@@ -49,6 +49,7 @@ class Recipe:
         self.__rev = self.__config['rev']
 
         self.__files = self.__config.get('files', {})
+        self.__install = self.__config.get('install', {})
 
         if not self.__url or not self.__rev:
             raise Exception(f"Missing configuration (url/rev) in JSON for recipe : {self.__name}")
@@ -133,7 +134,23 @@ class Recipe:
             self.__stamps.done(f"{self.__log.context}", Step.BUILD)
         return True
     
-    def install(self) -> bool:
+    def install(self, installPath: str) -> bool:
         if not self.__stamps.isDone(f"{self.__log.context}", Step.INSTALL):
+            files = self.__install.get('files', {})
+            for srcFile, dstFile in files.items():
+                src = srcFile.format(sourcePath=self.__sourcePath, buildPath=self.__buildPath, recipePath=self.__recipePath, rootPath=self.__root, outputPath=installPath)
+                dst = dstFile.format(sourcePath=self.__sourcePath, buildPath=self.__buildPath, recipePath=self.__recipePath, rootPath=self.__root, outputPath=installPath)
+                self.__log.info(f"Copying {src} to {dst}...")
+                if not Fs.cp(src, dst):
+                    self.__log.error(f"Failed to copy {src} to {dst}")
+                    return False
+            packages = self.__install.get('packages', {})
+            for srcFile, dstFile in packages.items():
+                src = srcFile.format(sourcePath=self.__sourcePath, buildPath=self.__buildPath, recipePath=self.__recipePath, rootPath=self.__root, outputPath=installPath)
+                dst = dstFile.format(sourcePath=self.__sourcePath, buildPath=self.__buildPath, recipePath=self.__recipePath, rootPath=self.__root, outputPath=installPath)
+                self.__log.info(f"Copying {src} to {dst}...")
+                if not Fs.cp(src, dst):
+                    self.__log.error(f"Failed to copy {src} to {dst}")
+                    return False
             self.__stamps.done(f"{self.__log.context}", Step.INSTALL)
         return True

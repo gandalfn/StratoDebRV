@@ -40,5 +40,20 @@
             "{recipePath}/firmware/esos.itb": "{targetPath}/usr/lib/u-boot-pico-itx-k3/esos.bin",
             "{recipePath}/firmware/flash": "{targetPath}/usr/lib/u-boot-k3-picoitx/flash"
         }
+    },
+    "install": {
+        "files": {
+            "{recipePath}/firmware/esos.itb": "{outputPath}/esos.bin",
+            "{sourcePath}/bootinfo_block.bin": "{outputPath}/bootinfo_block.bin",
+            "{sourcePath}/FSBL.bin": "{outputPath}/FSBL.bin",
+            "{sourcePath}/fw_dynamic.itb": "{outputPath}/fw_dynamic.bin",
+            "{sourcePath}/u-boot.itb": "{outputPath}/u-boot.bin",
+            "{sourcePath}/bootinfo_spinand.bin": "{outputPath}/bootinfo_spinand.bin",
+            "{sourcePath}/bootinfo_spinor.bin": "{outputPath}/bootinfo_spinor.bin",
+            "{sourcePath}/u-boot-env-default.bin": "{outputPath}/u-boot-env-default.bin"
+        },
+        "packages": {
+            "{buildPath}/*.deb": "{outputPath}/packages/"
+        }
     }
 }

@@ -11,5 +11,10 @@
     ],
     "files": {
         "{recipePath}/k3_defconfig": "{sourcePath}/arch/riscv/configs/k3_defconfig"
+    },
+    "install": {
+        "packages": {
+            "{sourcePath}/../*.deb": "{outputPath}/packages/"
+        }
     }
 }
