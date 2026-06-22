@@ -25,8 +25,13 @@ class Runner:
         self.__log = Log(f"{context}")
 
     def run(self, cmd: list, cwd: str = None, env: dict = None) -> bool:
-        self.__log.debug(f"Launching : {' '.join(cmd)} in {cwd or os.getcwd()}")
-        
+        self.__log.debug(f"Launching : {' '.join(cmd)}")
+        self.__log.debug(f"CWD : {cwd}")
+        if env:
+            self.__log.debug(f"ENV :")
+            for k, v in env.items():
+                self.__log.debug(f"     - {k}={v}")
+            
         current_env = os.environ.copy()
         if env:
             current_env.update(env)

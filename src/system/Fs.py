@@ -49,12 +49,14 @@ class Fs:
                 for match in matches:
                     if os.path.isdir(match):
                         dest_path = os.path.join(dst, os.path.basename(match)) if os.path.isdir(dst) else dst
+                        print(f"Copying directory {match} to {dest_path}")
                         shutil.copytree(match, dest_path, dirs_exist_ok=True)
                     else:
                         dest_path = dst
                         if os.path.isdir(dst):
                             dest_path = os.path.join(dst, os.path.basename(match))
                         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                        print(f"Copying file {match} to {dest_path}")
                         shutil.copy2(match, dest_path)
                 return True
 
@@ -63,19 +65,53 @@ class Fs:
                 os.makedirs(dstDir, exist_ok=True)
 
             if os.path.isdir(src):
+                print(f"Copying directory {src} to {dst}")
                 shutil.copytree(src, dst, dirs_exist_ok=True)
             else:
+                print(f"Copying file {src} to {dst}")
                 shutil.copy2(src, dst)
             return True
 
         except Exception as e:
+            print("Error copying file: " + str(e))
             return False
 
     @staticmethod
     def cpDir(src: str, dst: str) -> bool:
         try:
+            os.makedirs(dst, exist_ok=True)
             shutil.copytree(src, dst, dirs_exist_ok=True)
             return True
+        except Exception as e:
+            return False
+        
+    @staticmethod
+    def mv(src: str, dst: str) -> bool:
+        try:
+            if Fs.hasWildcard(src):
+                matches = glob.glob(src)
+                if not matches:
+                    return False
+
+                if len(matches) > 1 and not os.path.isdir(dst):
+                    return False
+
+                for match in matches:
+                    if os.path.isdir(dst):
+                        final_dst = os.path.join(dst, os.path.basename(match))
+                    else:
+                        final_dst = dst
+                        if len(matches) > 1:
+                            return False
+
+                    os.makedirs(os.path.dirname(final_dst), exist_ok=True)
+                    shutil.move(match, final_dst)
+                return True
+
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.move(src, dst)
+            return True
+
         except Exception as e:
             return False
 

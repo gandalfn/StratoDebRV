@@ -3,6 +3,8 @@
     "version": "0.0.1",
     "strata": [
         "Toolchain",
-        "Firmware"
+        "Firmware",
+        "RootFS",
+        "Packages"
     ]
 }

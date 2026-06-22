@@ -1,0 +1,13 @@
+{
+    "name": "GLibc",
+    "package": "glibc",
+    "version": "2.41",
+    "patches": [
+        "0081-Sync-change-from-bianbu-26.04-2.43-2ubuntu1bb2.patch"
+    ],
+    "install": {
+        "packages": {
+            "{buildPath}/*.deb": "{outputPath}"
+        }
+    }
+}

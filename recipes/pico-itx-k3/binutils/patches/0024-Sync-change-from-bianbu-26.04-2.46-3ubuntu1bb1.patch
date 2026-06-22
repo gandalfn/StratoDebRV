@@ -1,0 +1,2580 @@
+From: bianbu-ci <bianbu-ci@spacemit.com>
+Date: Mon, 16 Mar 2026 09:20:14 +0800
+Subject: Sync change from bianbu-26.04/2.46-3ubuntu1bb1
+
+---
+ bfd/elfxx-riscv.c                                  |  13 +
+ gas/config/tc-riscv.c                              | 182 ++++++++++++
+ gas/testsuite/gas/riscv/march-help.l               |   2 +
+ gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.d |  41 +++
+ gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.s |  33 +++
+ .../spacemit/spacemit-ai-2_0-fail-with-prefix.d    |   3 +
+ .../spacemit/spacemit-ai-2_0-fail-with-prefix.l    | 259 ++++++++++++++++
+ .../spacemit/spacemit-ai-2_0-fail-with-prefix.s    | 145 +++++++++
+ .../gas/riscv/spacemit/spacemit-ai-2_0-fail.d      |   3 +
+ .../gas/riscv/spacemit/spacemit-ai-2_0-fail.l      | 259 ++++++++++++++++
+ .../gas/riscv/spacemit/spacemit-ai-2_0-fail.s      | 145 +++++++++
+ gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.d | 325 +++++++++++++++++++++
+ gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.s | 318 ++++++++++++++++++++
+ gas/testsuite/gas/riscv/spacemit/spacemit-csr.d    |  22 ++
+ gas/testsuite/gas/riscv/spacemit/spacemit-csr.s    |  31 ++
+ gas/testsuite/gas/riscv/spacemit/spacemit.exp      |  27 ++
+ include/opcode/riscv-opc.h                         | 207 ++++++++++++-
+ include/opcode/riscv.h                             |  32 ++
+ opcodes/riscv-dis.c                                |  42 +++
+ opcodes/riscv-opc.c                                | 149 ++++++++++
+ 21 files changed, 2239 insertions(+), 2 deletions(-)
+ create mode 100644 .bianbu-ci.yml
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.d
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.s
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.d
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.l
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.s
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.d
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.l
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.s
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.d
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.s
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-csr.d
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit-csr.s
+ create mode 100644 gas/testsuite/gas/riscv/spacemit/spacemit.exp
+
+Index: binutils-2.44/bfd/elfxx-riscv.c
+===================================================================
+--- binutils-2.44.orig/bfd/elfxx-riscv.c
++++ binutils-2.44/bfd/elfxx-riscv.c
+@@ -1282,6 +1282,9 @@ static struct riscv_implicit_subset risc
+   {"svade", "+zicsr", check_implicit_always},
+   {"svadu", "+zicsr", check_implicit_always},
+   {"svbare", "+zicsr", check_implicit_always},
++
++  {"xsmtvdot", "+zve32x", check_implicit_always},
++  {"xsmtvdotii", "+xsmtvdot", check_implicit_always},
+   {NULL, NULL, NULL}
+ };
+ 
+@@ -1492,6 +1495,8 @@ static struct riscv_supported_ext riscv_
+   {"xcvelw",		ISA_SPEC_CLASS_DRAFT,   1, 0, 0 },
+   {"xcvmac",		ISA_SPEC_CLASS_DRAFT,   1, 0, 0 },
+   {"xcvmem",		ISA_SPEC_CLASS_DRAFT,	1, 0, 0 },
++  {"xsmtvdot",		ISA_SPEC_CLASS_DRAFT,	1, 0, 0 },
++  {"xsmtvdotii",	ISA_SPEC_CLASS_DRAFT,	1, 0, 0 },
+   {"xcvsimd",		ISA_SPEC_CLASS_DRAFT,	1, 0, 0 },
+   {"xtheadba",		ISA_SPEC_CLASS_DRAFT,	1, 0, 0 },
+   {"xtheadbb",		ISA_SPEC_CLASS_DRAFT,	1, 0, 0 },
+@@ -2770,6 +2775,10 @@ riscv_multi_subset_supports (riscv_parse
+       return riscv_subset_supports (rps, "xcvmac");
+     case INSN_CLASS_XCVMEM:
+       return riscv_subset_supports (rps, "xcvmem");
++    case INSN_CLASS_XSMTVDOT:
++      return riscv_subset_supports (rps, "xsmtvdot");
++    case INSN_CLASS_XSMTVDOTII:
++      return riscv_subset_supports (rps, "xsmtvdotii");
+     case INSN_CLASS_XCVSIMD:
+       return riscv_subset_supports (rps, "xcvsimd");
+     case INSN_CLASS_XTHEADBA:
+@@ -3075,6 +3084,10 @@ riscv_multi_subset_supports_ext (riscv_p
+       return "xcvmac";
+     case INSN_CLASS_XCVMEM:
+       return "xcvmem";
++    case INSN_CLASS_XSMTVDOT:
++      return "xsmtvdot";
++    case INSN_CLASS_XSMTVDOTII:
++      return "xsmtvdotii";
+     case INSN_CLASS_XCVSIMD:
+       return "xcvsimd";
+     case INSN_CLASS_XTHEADBA:
+Index: binutils-2.44/gas/config/tc-riscv.c
+===================================================================
+--- binutils-2.44.orig/gas/config/tc-riscv.c
++++ binutils-2.44/gas/config/tc-riscv.c
+@@ -87,6 +87,7 @@ enum riscv_csr_class
+   CSR_CLASS_SMRNMI,		/* Smrnmi */
+   CSR_CLASS_SMSTATEEN,		/* Smstateen only */
+   CSR_CLASS_SMSTATEEN_32,	/* Smstateen RV32 only */
++  CSR_CLASS_SPACEMIT,      /* Spacemit only */
+   CSR_CLASS_SSAIA,		/* Ssaia */
+   CSR_CLASS_SSAIA_AND_H,	/* Ssaia with H */
+   CSR_CLASS_SSAIA_32,		/* Ssaia, rv32 only */
+@@ -956,6 +957,8 @@ opcode_name_lookup (char **s)
+ /* All RISC-V registers belong to one of these classes.  */
+ enum reg_class
+ {
++  RCLASS_SPACEMIT_IME_WF,
++  RCLASS_SPACEMIT_IME_WI,
+   RCLASS_GPR,
+   RCLASS_FPR,
+   RCLASS_VECR,
+@@ -1163,6 +1166,8 @@ riscv_csr_address (const char *csr_name,
+     case CSR_CLASS_XTHEADVECTOR:
+       extension = "xtheadvector";
+       break;
++    case CSR_CLASS_SPACEMIT:
++      break;
+     default:
+       as_bad (_("internal: bad RISC-V CSR class (0x%x)"), csr_class);
+     }
+@@ -1546,6 +1551,10 @@ validate_riscv_insn (const struct riscv_
+ 	case 'V': /* RVV */
+ 	  switch (*++oparg)
+ 	    {
++	    case 'x': USE_BITS (OP_MASK_VD_2, OP_SH_VD_2); break;
++	    case 'y': USE_BITS (OP_MASK_VD_4, OP_SH_VD_4); break;
++	    case 'q': USE_BITS (OP_MASK_VS1_2, OP_SH_VS1_2); break;
++	    case 'g': USE_BITS (OP_MASK_SPACEMIT_IME_VMASK, OP_SH_SPACEMIT_IME_VMASK); break;
+ 	    case 'd':
+ 	    case 'f': USE_BITS (OP_MASK_VD, OP_SH_VD); break;
+ 	    case 'e': USE_BITS (OP_MASK_VWD, OP_SH_VWD); break;
+@@ -1583,6 +1592,16 @@ validate_riscv_insn (const struct riscv_
+ 	case 'I': break; /* Macro operand, must be constant.  */
+ 	case 'D': /* RD, floating point.  */
+ 	case 'd': USE_BITS (OP_MASK_RD, OP_SH_RD); break;
++	case 'g': USE_BITS (OP_MASK_SPACEMIT_IME_WF, OP_SH_SPACEMIT_IME_WF); break;
++	case 'e':
++	case '7':
++	case 'G': USE_BITS (OP_MASK_SPACEMIT_IME_WI, OP_SH_SPACEMIT_IME_WI); break;
++	case 'J': USE_BITS (OP_MASK_SPACEMIT_IME_WI, OP_SH_SPACEMIT_IME_WI); break;
++	case 'w': USE_BITS (OP_MASK_SPACEMIT_IME_WI, OP_SH_SPACEMIT_IME_WI); break;
++	case 'H': used_bits |= ENCODE_SPACEMIT_IME_UIMM3 (-1U); break;
++	case 'h': used_bits |= ENCODE_SPACEMIT_IME_UIMM2 (-1U); break;
++	case '9':
++	case 'K': used_bits |= ENCODE_SPACEMIT_IME_UIMM2_SP (-1U); break;
+ 	case 'y': USE_BITS (OP_MASK_BS,	OP_SH_BS); break;
+ 	case 'Y': USE_BITS (OP_MASK_RNUM, OP_SH_RNUM); break;
+ 	case 'Z': /* RS1, CSR number.  */
+@@ -1902,6 +1921,8 @@ md_begin (void)
+   reg_names_hash = str_htab_create ();
+   hash_reg_names (RCLASS_GPR, riscv_gpr_names_numeric, NGPR);
+   hash_reg_names (RCLASS_GPR, riscv_gpr_names_abi, NGPR);
++  hash_reg_names (RCLASS_SPACEMIT_IME_WF, riscv_spacemit_ime_wf_names_numeric, 3);
++  hash_reg_names (RCLASS_SPACEMIT_IME_WI, riscv_spacemit_ime_wi_names_numeric, 4);
+   hash_reg_names (RCLASS_FPR, riscv_fpr_names_numeric, NFPR);
+   hash_reg_names (RCLASS_FPR, riscv_fpr_names_abi, NFPR);
+   hash_reg_names (RCLASS_VECR, riscv_vecr_names_numeric, NVECR);
+@@ -2086,6 +2107,20 @@ macro_build (expressionS *ep, const char
+ 	case 'd':
+ 	  INSERT_OPERAND (RD, insn, va_arg (args, int));
+ 	  continue;
++	case 'g':
++	  INSERT_OPERAND (SPACEMIT_IME_WF, insn, va_arg (args, int));
++	  continue;
++	case 'e':
++	case '7':
++	case 'G':
++	  INSERT_OPERAND (SPACEMIT_IME_WI, insn, va_arg (args, int));
++	  continue;
++	case 'J':
++	  INSERT_OPERAND (SPACEMIT_IME_WI, insn, va_arg (args, int));
++	  continue;
++	case 'w':
++	  INSERT_OPERAND (SPACEMIT_IME_WI, insn, va_arg (args, int));
++	  continue;
+ 	case 's':
+ 	  INSERT_OPERAND (RS1, insn, va_arg (args, int));
+ 	  continue;
+@@ -3255,6 +3290,53 @@ riscv_ip (char *str, struct riscv_cl_ins
+ 		  INSERT_OPERAND (VD, *ip, regno);
+ 		  continue;
+ 
++		case 'x': /* TD mod 2 == 0 */
++		  if (!reg_lookup (&asarg, RCLASS_VECR, &regno))
++		    break;
++		  if ((regno & 0x1) != 0)
++		  {
++		    error.msg = _("illegal operands");
++		    break;
++		  }
++		  regno >>= 1;
++		  INSERT_OPERAND (VD_2, *ip, regno);
++		  continue;
++
++		case 'y': /* TD mod 4 == 0 */
++		  if (!reg_lookup (&asarg, RCLASS_VECR, &regno))
++		    break;
++		  if ((regno & 0x3) != 0)
++		  {
++		    error.msg = _("illegal operands");
++		    break;
++		  }
++		  regno >>= 2;
++		  INSERT_OPERAND (VD_4, *ip, regno);
++		  continue;
++
++		case 'q': /* Ts1 mod 2 == 0 */
++		  if (!reg_lookup (&asarg, RCLASS_VECR, &regno))
++		    break;
++		  if ((regno & 0x1) != 0)
++		  {
++		    error.msg = _("illegal operands");
++		    break;
++		  }
++		  regno >>= 1;
++		  INSERT_OPERAND (VS1_2, *ip, regno);
++		  continue;
++
++		case 'g':
++		  if (!reg_lookup (&asarg, RCLASS_VECR, &regno))
++		    break;
++		  if (regno >= 2)
++		  {
++		    error.msg = _("illegal operands(only support v0/v1)");
++		    break;
++		  }
++		  INSERT_OPERAND (SPACEMIT_IME_VMASK, *ip, regno);
++		  continue;
++
+ 		case 'e': /* AMO VD */
+ 		  if (reg_lookup (&asarg, RCLASS_GPR, &regno) && regno == 0)
+ 		    INSERT_OPERAND (VWD, *ip, 0);
+@@ -3513,6 +3595,106 @@ riscv_ip (char *str, struct riscv_cl_ins
+ 		}
+ 	      break;
+ 
++	    case 'g':
++	      if (!reg_lookup (&asarg, RCLASS_SPACEMIT_IME_WF, &regno))
++		break;
++	      if ((regno & 0x3) != 0 )
++		{
++		    as_bad (_("bad width field, "
++			    "width only support f16"));
++		    break;
++		}
++	      INSERT_OPERAND (SPACEMIT_IME_WF, *ip, regno);
++	      continue;
++	    case 'G':
++	      if (!reg_lookup (&asarg, RCLASS_SPACEMIT_IME_WI, &regno))
++		break;
++	      if ((regno & 0x3) == 0 || (regno & 0x3) == 1)
++		{
++		    as_bad (_("bad width field, "
++			    "width not support i2/i16"));
++		    break;
++		}
++	      INSERT_OPERAND (SPACEMIT_IME_WI, *ip, regno);
++	      continue;
++	    case '7':
++	      if (!arg_lookup (&asarg, riscv_spacemit_ime_wi_names_numeric_1, ARRAY_SIZE (riscv_spacemit_ime_wi_names_numeric_1), &regno))
++		break;
++	      INSERT_OPERAND (SPACEMIT_IME_WI, *ip, regno);
++	      continue;
++	    case 'e':
++	      if (!arg_lookup (&asarg, riscv_spacemit_ime_wi_names_numeric_2, ARRAY_SIZE (riscv_spacemit_ime_wi_names_numeric_2), &regno))
++		break;
++	      if ((regno & 0x3) == 0 || (regno & 0x3) == 1)
++		{
++		    as_bad (_("bad width field, "
++			    "width not support i2/i16"));
++		    break;
++		}
++	      INSERT_OPERAND (SPACEMIT_IME_WI, *ip, regno);
++	      continue;
++	    case 'J':
++	      if (!reg_lookup (&asarg, RCLASS_SPACEMIT_IME_WI, &regno))
++		    break;
++	      if ((regno & 0x3) != 2 && (regno & 0x3) != 3) {
++		    as_bad (_("bad width field, "
++			    "width only support i4 & i8"));
++		    break;
++	      }
++	      INSERT_OPERAND (SPACEMIT_IME_WI, *ip, regno);
++	      continue;
++	    case 'w':
++	      if (!reg_lookup (&asarg, RCLASS_SPACEMIT_IME_WI, &regno))
++		    break;
++	      if ((regno & 0x3) != 3) {
++		    as_bad (_("bad width field, "
++			    "width only support i8"));
++		    break;
++	      }
++	      INSERT_OPERAND (SPACEMIT_IME_WI, *ip, regno);
++	      continue;
++	    case 'H':
++	      my_getExpression (imm_expr, asarg);
++	      check_absolute_expr (ip, imm_expr, FALSE);
++	      if (imm_expr->X_add_number < 0 || imm_expr->X_add_number >= 8)
++		    as_bad (_("bad value for uimm3 field, "
++			    "value must be 0...7"));
++	      ip->insn_opcode |= ENCODE_SPACEMIT_IME_UIMM3 (imm_expr->X_add_number);
++	      imm_expr->X_op = O_absent;
++	      asarg = expr_parse_end;
++	      continue;
++	    case 'h':
++	      my_getExpression (imm_expr, asarg);
++	      check_absolute_expr (ip, imm_expr, FALSE);
++	      if (imm_expr->X_add_number < 0 || imm_expr->X_add_number >= 4)
++		    as_bad (_("bad value for uimm2 field, "
++			    "value must be 0...3"));
++	      ip->insn_opcode |= ENCODE_SPACEMIT_IME_UIMM2 (imm_expr->X_add_number);
++	      imm_expr->X_op = O_absent;
++	      asarg = expr_parse_end;
++	      continue;
++	    case '9':
++	      my_getExpression (imm_expr, asarg);
++	      check_absolute_expr (ip, imm_expr, FALSE);
++	      if (imm_expr->X_add_number < 0 || imm_expr->X_add_number >= 2)
++		    as_bad (_("bad value for uimm2 field, "
++			    "value must be 0..1"));
++	      ip->insn_opcode |= ENCODE_SPACEMIT_IME_UIMM2_SP (imm_expr->X_add_number);
++	      imm_expr->X_op = O_absent;
++	      asarg = expr_parse_end;
++	      continue;
++	    case 'K':
++	      my_getExpression (imm_expr, asarg);
++	      check_absolute_expr (ip, imm_expr, FALSE);
++	      if (imm_expr->X_add_number < 0 || imm_expr->X_add_number >= 4)
++		    as_bad (_("bad value for uimm2 field, "
++			    "value must be 0..3"));
++	      ip->insn_opcode |= ENCODE_SPACEMIT_IME_UIMM2_SP (imm_expr->X_add_number);
++	      imm_expr->X_op = O_absent;
++	      asarg = expr_parse_end;
++	      continue;
++
++
+ 	    case 'd': /* Destination register.  */
+ 	    case 's': /* Source register.  */
+ 	    case 't': /* Target register.  */
+Index: binutils-2.44/gas/testsuite/gas/riscv/march-help.l
+===================================================================
+--- binutils-2.44.orig/gas/testsuite/gas/riscv/march-help.l
++++ binutils-2.44/gas/testsuite/gas/riscv/march-help.l
+@@ -145,6 +145,8 @@ All available -march extensions for RISC
+ 	xcvelw                                  1.0
+ 	xcvmac                                  1.0
+ 	xcvmem                                  1.0
++	xsmtvdot                                1.0
++	xsmtvdotii                              1.0
+ 	xcvsimd                                 1.0
+ 	xtheadba                                1.0
+ 	xtheadbb                                1.0
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.d
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.d
+@@ -0,0 +1,41 @@
++#as: -march=rv64gc_xsmtvdot
++#objdump: -dr
++
++.*:[ 	]+file format .*
++
++
++Disassembly of section .text:
++0+000 <.text>:
++[ 	]+[0-9a-f]+:[ 	]+e241b12b[ 	]+smt.vmadot[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e241812b[ 	]+smt.vmadotu[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e241a12b[ 	]+smt.vmadotsu[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e241912b[ 	]+smt.vmadotus[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e652012b[ 	]+smt.vmadot1u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652312b[ 	]+smt.vmadot1[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652212b[ 	]+smt.vmadot1su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652112b[ 	]+smt.vmadot1us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652412b[ 	]+smt.vmadot2u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652712b[ 	]+smt.vmadot2[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652612b[ 	]+smt.vmadot2su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652512b[ 	]+smt.vmadot2us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652812b[ 	]+smt.vmadot3u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652b12b[ 	]+smt.vmadot3[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652a12b[ 	]+smt.vmadot3su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652912b[ 	]+smt.vmadot3us[ 	]+v2,v4,v5
++
++[ 	]+[0-9a-f]+:[ 	]+e241b12b[ 	]+smt.vmadot[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e241812b[ 	]+smt.vmadotu[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e241a12b[ 	]+smt.vmadotsu[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e241912b[ 	]+smt.vmadotus[ 	]+v2,v3,v4
++[ 	]+[0-9a-f]+:[ 	]+e652012b[ 	]+smt.vmadot1u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652312b[ 	]+smt.vmadot1[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652212b[ 	]+smt.vmadot1su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652112b[ 	]+smt.vmadot1us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652412b[ 	]+smt.vmadot2u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652712b[ 	]+smt.vmadot2[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652612b[ 	]+smt.vmadot2su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652512b[ 	]+smt.vmadot2us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652812b[ 	]+smt.vmadot3u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652b12b[ 	]+smt.vmadot3[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652a12b[ 	]+smt.vmadot3su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652912b[ 	]+smt.vmadot3us[ 	]+v2,v4,v5
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.s
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-1_0.s
+@@ -0,0 +1,33 @@
++	smt.vmadot v2, v3, v4
++	smt.vmadotu v2, v3, v4
++	smt.vmadotsu v2, v3, v4
++	smt.vmadotus v2, v3, v4
++	smt.vmadot1u v2, v4, v5
++	smt.vmadot1 v2, v4, v5
++	smt.vmadot1su v2, v4, v5
++	smt.vmadot1us v2, v4, v5
++	smt.vmadot2u v2, v4, v5
++	smt.vmadot2 v2, v4, v5
++	smt.vmadot2su v2, v4, v5
++	smt.vmadot2us v2, v4, v5
++	smt.vmadot3u v2, v4, v5
++	smt.vmadot3 v2, v4, v5
++	smt.vmadot3su v2, v4, v5
++	smt.vmadot3us v2, v4, v5
++
++	vmadot v2, v3, v4
++	vmadotu v2, v3, v4
++	vmadotsu v2, v3, v4
++	vmadotus v2, v3, v4
++	vmadot1u v2, v4, v5
++	vmadot1 v2, v4, v5
++	vmadot1su v2, v4, v5
++	vmadot1us v2, v4, v5
++	vmadot2u v2, v4, v5
++	vmadot2 v2, v4, v5
++	vmadot2su v2, v4, v5
++	vmadot2us v2, v4, v5
++	vmadot3u v2, v4, v5
++	vmadot3 v2, v4, v5
++	vmadot3su v2, v4, v5
++	vmadot3us v2, v4, v5
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.d
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.d
+@@ -0,0 +1,3 @@
++#as: -march=rv64gc_zba_zbb_zbc_zbs_xsmtvdotii
++#source: spacemit-ai-2_0-fail-with-prefix.s
++#error_output: spacemit-ai-2_0-fail-with-prefix.l
+\ No newline at end of file
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.l
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.l
+@@ -0,0 +1,259 @@
++.*: Assembler messages:
++.*:2: Error: expect vd is even
++.*:2: Error: expect vd is even
++.*:2: Error: illegal operands `smt.vmadot v1,v3,v4,i4'
++.*:3: Error: expect vd is even
++.*:3: Error: expect vd is even
++.*:3: Error: illegal operands `smt.vmadot v1,v3,v4,i8'
++.*:5: Error: expect vd is even
++.*:5: Error: expect vd is even
++.*:5: Error: illegal operands `smt.vmadotu v1,v3,v4,i4'
++.*:6: Error: expect vd is even
++.*:6: Error: expect vd is even
++.*:6: Error: illegal operands `smt.vmadotu v1,v3,v4,i8'
++.*:8: Error: expect vd is even
++.*:8: Error: expect vd is even
++.*:8: Error: illegal operands `smt.vmadotsu v1,v3,v4,i4'
++.*:9: Error: expect vd is even
++.*:9: Error: expect vd is even
++.*:9: Error: illegal operands `smt.vmadotsu v1,v3,v4,i8'
++.*:11: Error: expect vd is even
++.*:11: Error: expect vd is even
++.*:11: Error: illegal operands `smt.vmadotus v1,v3,v4,i4'
++.*:12: Error: expect vd is even
++.*:12: Error: expect vd is even
++.*:12: Error: illegal operands `smt.vmadotus v1,v3,v4,i8'
++.*:15: Error: expect vd is even
++.*:15: Error: expect vd is even
++.*:15: Error: illegal operands `smt.vmadot1 v1,v4,v5,i4'
++.*:16: Error: expect vd is even
++.*:16: Error: expect vd is even
++.*:16: Error: illegal operands `smt.vmadot1 v1,v4,v5,i8'
++.*:18: Error: expect vd is even
++.*:18: Error: expect vd is even
++.*:18: Error: illegal operands `smt.vmadot1su v1,v4,v5,i4'
++.*:19: Error: expect vd is even
++.*:19: Error: expect vd is even
++.*:19: Error: illegal operands `smt.vmadot1su v1,v4,v5,i8'
++.*:21: Error: expect vd is even
++.*:21: Error: expect vd is even
++.*:21: Error: illegal operands `smt.vmadot1us v1,v4,v5,i4'
++.*:22: Error: expect vd is even
++.*:22: Error: expect vd is even
++.*:22: Error: illegal operands `smt.vmadot1us v1,v4,v5,i8'
++.*:24: Error: expect vd is even
++.*:24: Error: expect vd is even
++.*:24: Error: illegal operands `smt.vmadot2u v1,v4,v5,i4'
++.*:25: Error: expect vd is even
++.*:25: Error: expect vd is even
++.*:25: Error: illegal operands `smt.vmadot2u v1,v4,v5,i8'
++.*:27: Error: expect vd is even
++.*:27: Error: expect vd is even
++.*:27: Error: illegal operands `smt.vmadot2 v1,v4,v5,i4'
++.*:28: Error: expect vd is even
++.*:28: Error: expect vd is even
++.*:28: Error: illegal operands `smt.vmadot2 v1,v4,v5,i8'
++.*:30: Error: expect vd is even
++.*:30: Error: expect vd is even
++.*:30: Error: illegal operands `smt.vmadot2su v1,v4,v5,i4'
++.*:31: Error: expect vd is even
++.*:31: Error: expect vd is even
++.*:31: Error: illegal operands `smt.vmadot2su v1,v4,v5,i8'
++.*:33: Error: expect vd is even
++.*:33: Error: expect vd is even
++.*:33: Error: illegal operands `smt.vmadot2us v1,v4,v5,i4'
++.*:34: Error: expect vd is even
++.*:34: Error: expect vd is even
++.*:34: Error: illegal operands `smt.vmadot2us v1,v4,v5,i8'
++.*:36: Error: expect vd is even
++.*:36: Error: expect vd is even
++.*:36: Error: illegal operands `smt.vmadot3u v1,v4,v5,i4'
++.*:37: Error: expect vd is even
++.*:37: Error: expect vd is even
++.*:37: Error: illegal operands `smt.vmadot3u v1,v4,v5,i8'
++.*:39: Error: expect vd is even
++.*:39: Error: expect vd is even
++.*:39: Error: illegal operands `smt.vmadot3 v1,v4,v5,i4'
++.*:40: Error: expect vd is even
++.*:40: Error: expect vd is even
++.*:40: Error: illegal operands `smt.vmadot3 v1,v4,v5,i8'
++.*:42: Error: expect vd is even
++.*:42: Error: expect vd is even
++.*:42: Error: illegal operands `smt.vmadot3su v1,v4,v5,i4'
++.*:43: Error: expect vd is even
++.*:43: Error: expect vd is even
++.*:43: Error: illegal operands `smt.vmadot3su v1,v4,v5,i8'
++.*:45: Error: expect vd is even
++.*:45: Error: expect vd is even
++.*:45: Error: illegal operands `smt.vmadot3us v1,v4,v5,i4'
++.*:46: Error: expect vd is even
++.*:46: Error: expect vd is even
++.*:46: Error: illegal operands `smt.vmadot3us v1,v4,v5,i8'
++.*:49: Error: expect vd is even
++.*:49: Error: expect vd is even
++.*:49: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v0,0,i4'
++.*:50: Error: expect vd is even
++.*:50: Error: expect vd is even
++.*:50: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v0,0,i8'
++.*:51: Error: expect vd is even
++.*:51: Error: expect vd is even
++.*:51: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v1,0,i4'
++.*:52: Error: expect vd is even
++.*:52: Error: expect vd is even
++.*:52: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v1,0,i8'
++.*:54: Error: expect vd is even
++.*:54: Error: expect vd is even
++.*:54: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v0,0,i4'
++.*:55: Error: expect vd is even
++.*:55: Error: expect vd is even
++.*:55: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v0,0,i8'
++.*:56: Error: expect vd is even
++.*:56: Error: expect vd is even
++.*:56: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v1,0,i4'
++.*:57: Error: expect vd is even
++.*:57: Error: expect vd is even
++.*:57: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v1,0,i8'
++.*:59: Error: expect vd is even
++.*:59: Error: expect vd is even
++.*:59: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v0,0,i4'
++.*:60: Error: expect vd is even
++.*:60: Error: expect vd is even
++.*:60: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v0,0,i8'
++.*:61: Error: expect vd is even
++.*:61: Error: expect vd is even
++.*:61: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v1,0,i4'
++.*:62: Error: expect vd is even
++.*:62: Error: expect vd is even
++.*:62: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v1,0,i8'
++.*:64: Error: expect vd is even
++.*:64: Error: expect vd is even
++.*:64: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v0,0,i4'
++.*:65: Error: expect vd is even
++.*:65: Error: expect vd is even
++.*:65: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v0,0,i8'
++.*:66: Error: expect vd is even
++.*:66: Error: expect vd is even
++.*:66: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v1,0,i4'
++.*:67: Error: expect vd is even
++.*:67: Error: expect vd is even
++.*:67: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v1,0,i8'
++.*:69: Error: expect vd is even
++.*:69: Error: expect vd is even
++.*:69: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v0,1,i4'
++.*:70: Error: expect vd is even
++.*:70: Error: expect vd is even
++.*:70: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v0,1,i8'
++.*:71: Error: expect vd is even
++.*:71: Error: expect vd is even
++.*:71: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v1,1,i4'
++.*:72: Error: expect vd is even
++.*:72: Error: expect vd is even
++.*:72: Error: illegal operands `smt.vmadotu.sp v1,v4,v5,v1,1,i8'
++.*:74: Error: expect vd is even
++.*:74: Error: expect vd is even
++.*:74: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v0,1,i4'
++.*:75: Error: expect vd is even
++.*:75: Error: expect vd is even
++.*:75: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v0,1,i8'
++.*:76: Error: expect vd is even
++.*:76: Error: expect vd is even
++.*:76: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v1,1,i4'
++.*:77: Error: expect vd is even
++.*:77: Error: expect vd is even
++.*:77: Error: illegal operands `smt.vmadot.sp v1,v4,v5,v1,1,i8'
++.*:79: Error: expect vd is even
++.*:79: Error: expect vd is even
++.*:79: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v0,1,i4'
++.*:80: Error: expect vd is even
++.*:80: Error: expect vd is even
++.*:80: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v0,1,i8'
++.*:81: Error: expect vd is even
++.*:81: Error: expect vd is even
++.*:81: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v1,1,i4'
++.*:82: Error: expect vd is even
++.*:82: Error: expect vd is even
++.*:82: Error: illegal operands `smt.vmadotsu.sp v1,v4,v5,v1,1,i8'
++.*:84: Error: expect vd is even
++.*:84: Error: expect vd is even
++.*:84: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v0,1,i4'
++.*:85: Error: expect vd is even
++.*:85: Error: expect vd is even
++.*:85: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v0,1,i8'
++.*:86: Error: expect vd is even
++.*:86: Error: expect vd is even
++.*:86: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v1,1,i4'
++.*:87: Error: expect vd is even
++.*:87: Error: expect vd is even
++.*:87: Error: illegal operands `smt.vmadotus.sp v1,v4,v5,v1,1,i8'
++.*:90: Error: bad width field, width only support i8
++.*:90: Error: illegal operands `smt.vmadot1u v2,v4,v5,i4'
++.*:91: Error: bad width field, width only support i8
++.*:91: Error: illegal operands `smt.vmadot1 v2,v4,v5,i4'
++.*:92: Error: bad width field, width only support i8
++.*:92: Error: illegal operands `smt.vmadot1su v2,v4,v5,i4'
++.*:93: Error: bad width field, width only support i8
++.*:93: Error: illegal operands `smt.vmadot1us v2,v4,v5,i4'
++.*:94: Error: bad width field, width only support i8
++.*:94: Error: illegal operands `smt.vmadot2u v2,v4,v5,i4'
++.*:95: Error: bad width field, width only support i8
++.*:95: Error: illegal operands `smt.vmadot2 v2,v4,v5,i4'
++.*:96: Error: bad width field, width only support i8
++.*:96: Error: illegal operands `smt.vmadot2su v2,v4,v5,i4'
++.*:97: Error: bad width field, width only support i8
++.*:97: Error: illegal operands `smt.vmadot2us v2,v4,v5,i4'
++.*:98: Error: bad width field, width only support i8
++.*:98: Error: illegal operands `smt.vmadot3u v2,v4,v5,i4'
++.*:99: Error: bad width field, width only support i8
++.*:99: Error: illegal operands `smt.vmadot3 v2,v4,v5,i4'
++.*:100: Error: bad width field, width only support i8
++.*:100: Error: illegal operands `smt.vmadot3su v2,v4,v5,i4'
++.*:101: Error: bad width field, width only support i8
++.*:101: Error: illegal operands `smt.vmadot3us v2,v4,v5,i4'
++.*:103: Error: bad value for uimm2 field, value must be 0..1
++.*:104: Error: bad value for uimm2 field, value must be 0..1
++.*:106: Error: bad value for uimm2 field, value must be 0..1
++.*:107: Error: bad value for uimm2 field, value must be 0..1
++.*:109: Error: bad value for uimm2 field, value must be 0..1
++.*:110: Error: bad value for uimm2 field, value must be 0..1
++.*:112: Error: bad value for uimm2 field, value must be 0..1
++.*:113: Error: bad value for uimm2 field, value must be 0..1
++.*:115: Error: bad value for uimm2 field, value must be 0..3
++.*:116: Error: bad value for uimm2 field, value must be 0..3
++.*:118: Error: bad value for uimm2 field, value must be 0..3
++.*:119: Error: bad value for uimm2 field, value must be 0..3
++.*:121: Error: bad value for uimm2 field, value must be 0..3
++.*:122: Error: bad value for uimm2 field, value must be 0..3
++.*:124: Error: bad value for uimm2 field, value must be 0..3
++.*:125: Error: bad value for uimm2 field, value must be 0..3
++.*:128: Error: expect vd is even
++.*:128: Error: expect vd is even
++.*:128: Error: illegal operands `smt.vfwmadot v1,v4,v3,16f'
++.*:129: Error: expect vd is even
++.*:129: Error: expect vd is even
++.*:129: Error: illegal operands `smt.vfwmadot v1,v4,v3'
++.*:131: Error: expect vd is even
++.*:131: Error: expect vd is even
++.*:131: Error: illegal operands `smt.vfwmadot1 v1,v4,v3,16f'
++.*:132: Error: expect vd is even
++.*:132: Error: expect vd is even
++.*:132: Error: illegal operands `smt.vfwmadot1 v1,v4,v3'
++.*:134: Error: expect vd is even
++.*:134: Error: expect vd is even
++.*:134: Error: illegal operands `smt.vfwmadot2 v1,v4,v3,16f'
++.*:135: Error: expect vd is even
++.*:135: Error: expect vd is even
++.*:135: Error: illegal operands `smt.vfwmadot2 v1,v4,v3'
++.*:137: Error: expect vd is even
++.*:137: Error: expect vd is even
++.*:137: Error: illegal operands `smt.vfwmadot3 v1,v4,v3,16f'
++.*:138: Error: expect vd is even
++.*:138: Error: expect vd is even
++.*:138: Error: illegal operands `smt.vfwmadot3 v1,v4,v3'
++.*:141: Error: expect vd is even
++.*:141: Error: illegal operands `smt.vpack.vv v1,v3,v4,0'
++.*:142: Error: expect vd is even
++.*:142: Error: illegal operands `smt.vpack.vv v1,v3,v4,3'
++.*:144: Error: expect vd is even
++.*:144: Error: illegal operands `smt.vupack.vv v1,v3,v4,0'
++.*:145: Error: expect vd is even
++.*:145: Error: illegal operands `smt.vupack.vv v1,v3,v4,3'
+\ No newline at end of file
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.s
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail-with-prefix.s
+@@ -0,0 +1,145 @@
++target:
++    smt.vmadot v1, v3, v4, i4
++    smt.vmadot v1, v3, v4, i8
++#
++    smt.vmadotu v1, v3, v4, i4
++    smt.vmadotu v1, v3, v4, i8
++#
++    smt.vmadotsu v1, v3, v4, i4
++    smt.vmadotsu v1, v3, v4, i8
++#
++    smt.vmadotus v1, v3, v4, i4
++    smt.vmadotus v1, v3, v4, i8
++
++#
++    smt.vmadot1 v1, v4, v5, i4
++    smt.vmadot1 v1, v4, v5, i8
++#
++    smt.vmadot1su v1, v4, v5, i4
++    smt.vmadot1su v1, v4, v5, i8
++#
++    smt.vmadot1us v1, v4, v5, i4
++    smt.vmadot1us v1, v4, v5, i8
++#
++    smt.vmadot2u v1, v4, v5, i4
++    smt.vmadot2u v1, v4, v5, i8
++#
++    smt.vmadot2 v1, v4, v5, i4
++    smt.vmadot2 v1, v4, v5, i8
++#
++    smt.vmadot2su v1, v4, v5, i4
++    smt.vmadot2su v1, v4, v5, i8
++#
++    smt.vmadot2us v1, v4, v5, i4
++    smt.vmadot2us v1, v4, v5, i8
++#
++    smt.vmadot3u v1, v4, v5, i4
++    smt.vmadot3u v1, v4, v5, i8
++#
++    smt.vmadot3 v1, v4, v5, i4
++    smt.vmadot3 v1, v4, v5, i8
++#
++    smt.vmadot3su v1, v4, v5, i4
++    smt.vmadot3su v1, v4, v5, i8
++#
++    smt.vmadot3us v1, v4, v5, i4
++    smt.vmadot3us v1, v4, v5, i8
++
++#
++    smt.vmadotu.sp v1, v4, v5, v0, 0, i4
++    smt.vmadotu.sp v1, v4, v5, v0, 0, i8
++    smt.vmadotu.sp v1, v4, v5, v1, 0, i4
++    smt.vmadotu.sp v1, v4, v5, v1, 0, i8
++#
++    smt.vmadot.sp v1, v4, v5, v0, 0, i4
++    smt.vmadot.sp v1, v4, v5, v0, 0, i8
++    smt.vmadot.sp v1, v4, v5, v1, 0, i4
++    smt.vmadot.sp v1, v4, v5, v1, 0, i8
++#
++    smt.vmadotsu.sp v1, v4, v5, v0, 0, i4
++    smt.vmadotsu.sp v1, v4, v5, v0, 0, i8
++    smt.vmadotsu.sp v1, v4, v5, v1, 0, i4
++    smt.vmadotsu.sp v1, v4, v5, v1, 0, i8
++#
++    smt.vmadotus.sp v1, v4, v5, v0, 0, i4
++    smt.vmadotus.sp v1, v4, v5, v0, 0, i8
++    smt.vmadotus.sp v1, v4, v5, v1, 0, i4
++    smt.vmadotus.sp v1, v4, v5, v1, 0, i8
++#
++    smt.vmadotu.sp v1, v4, v5, v0, 1, i4
++    smt.vmadotu.sp v1, v4, v5, v0, 1, i8
++    smt.vmadotu.sp v1, v4, v5, v1, 1, i4
++    smt.vmadotu.sp v1, v4, v5, v1, 1, i8
++#
++    smt.vmadot.sp v1, v4, v5, v0, 1, i4
++    smt.vmadot.sp v1, v4, v5, v0, 1, i8
++    smt.vmadot.sp v1, v4, v5, v1, 1, i4
++    smt.vmadot.sp v1, v4, v5, v1, 1, i8
++#
++    smt.vmadotsu.sp v1, v4, v5, v0, 1, i4
++    smt.vmadotsu.sp v1, v4, v5, v0, 1, i8
++    smt.vmadotsu.sp v1, v4, v5, v1, 1, i4
++    smt.vmadotsu.sp v1, v4, v5, v1, 1, i8
++#
++    smt.vmadotus.sp v1, v4, v5, v0, 1, i4
++    smt.vmadotus.sp v1, v4, v5, v0, 1, i8
++    smt.vmadotus.sp v1, v4, v5, v1, 1, i4
++    smt.vmadotus.sp v1, v4, v5, v1, 1, i8
++
++#
++    smt.vmadot1u v2, v4, v5, i4
++    smt.vmadot1 v2, v4, v5, i4
++    smt.vmadot1su v2, v4, v5, i4
++    smt.vmadot1us v2, v4, v5, i4
++    smt.vmadot2u v2, v4, v5, i4
++    smt.vmadot2 v2, v4, v5, i4
++    smt.vmadot2su v2, v4, v5, i4
++    smt.vmadot2us v2, v4, v5, i4
++    smt.vmadot3u v2, v4, v5, i4
++    smt.vmadot3 v2, v4, v5, i4
++    smt.vmadot3su v2, v4, v5, i4
++    smt.vmadot3us v2, v4, v5, i4
++#
++    smt.vmadotu.sp v2, v4, v5, v0, 2, i4
++    smt.vmadotu.sp v2, v4, v5, v0, 3, i4
++
++    smt.vmadot.sp v2, v4, v5, v0, 2, i4
++    smt.vmadot.sp v2, v4, v5, v0, 3, i4
++
++    smt.vmadotsu.sp v2, v4, v5, v0, 2, i4
++    smt.vmadotsu.sp v2, v4, v5, v0, 3, i4
++
++    smt.vmadotus.sp v2, v4, v5, v0, 2, i4
++    smt.vmadotus.sp v2, v4, v5, v0, 3, i4
++
++    smt.vmadotu.sp v2, v4, v5, v0, -1, i8
++    smt.vmadotu.sp v2, v4, v5, v0, 4, i8
++
++    smt.vmadot.sp v2, v4, v5, v0, -1, i8
++    smt.vmadot.sp v2, v4, v5, v0, 4, i8
++
++    smt.vmadotsu.sp v2, v4, v5, v0, -1, i8
++    smt.vmadotsu.sp v2, v4, v5, v0, 4, i8
++
++    smt.vmadotus.sp v2, v4, v5, v0, -1, i8
++    smt.vmadotus.sp v2, v4, v5, v0, 4, i8
++
++#
++    smt.vfwmadot v1, v4, v3, 16f
++    smt.vfwmadot v1, v4, v3
++#
++    smt.vfwmadot1 v1, v4, v3, 16f
++    smt.vfwmadot1 v1, v4, v3
++#
++    smt.vfwmadot2 v1, v4, v3, 16f
++    smt.vfwmadot2 v1, v4, v3
++#
++    smt.vfwmadot3 v1, v4, v3, 16f
++    smt.vfwmadot3 v1, v4, v3
++
++#
++    smt.vpack.vv v1, v3, v4, 0
++    smt.vpack.vv v1, v3, v4, 3
++#
++    smt.vupack.vv v1, v3, v4, 0
++    smt.vupack.vv v1, v3, v4, 3
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.d
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.d
+@@ -0,0 +1,3 @@
++#as: -march=rv64gc_zba_zbb_zbc_zbs_xsmtvdotii
++#source: spacemit-ai-2_0-fail.s
++#error_output: spacemit-ai-2_0-fail.l
+\ No newline at end of file
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.l
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.l
+@@ -0,0 +1,259 @@
++.*: Assembler messages:
++.*:2: Error: expect vd is even
++.*:2: Error: expect vd is even
++.*:2: Error: illegal operands `vmadot v1,v3,v4,i4'
++.*:3: Error: expect vd is even
++.*:3: Error: expect vd is even
++.*:3: Error: illegal operands `vmadot v1,v3,v4,i8'
++.*:5: Error: expect vd is even
++.*:5: Error: expect vd is even
++.*:5: Error: illegal operands `vmadotu v1,v3,v4,i4'
++.*:6: Error: expect vd is even
++.*:6: Error: expect vd is even
++.*:6: Error: illegal operands `vmadotu v1,v3,v4,i8'
++.*:8: Error: expect vd is even
++.*:8: Error: expect vd is even
++.*:8: Error: illegal operands `vmadotsu v1,v3,v4,i4'
++.*:9: Error: expect vd is even
++.*:9: Error: expect vd is even
++.*:9: Error: illegal operands `vmadotsu v1,v3,v4,i8'
++.*:11: Error: expect vd is even
++.*:11: Error: expect vd is even
++.*:11: Error: illegal operands `vmadotus v1,v3,v4,i4'
++.*:12: Error: expect vd is even
++.*:12: Error: expect vd is even
++.*:12: Error: illegal operands `vmadotus v1,v3,v4,i8'
++.*:15: Error: expect vd is even
++.*:15: Error: expect vd is even
++.*:15: Error: illegal operands `vmadot1 v1,v4,v5,i4'
++.*:16: Error: expect vd is even
++.*:16: Error: expect vd is even
++.*:16: Error: illegal operands `vmadot1 v1,v4,v5,i8'
++.*:18: Error: expect vd is even
++.*:18: Error: expect vd is even
++.*:18: Error: illegal operands `vmadot1su v1,v4,v5,i4'
++.*:19: Error: expect vd is even
++.*:19: Error: expect vd is even
++.*:19: Error: illegal operands `vmadot1su v1,v4,v5,i8'
++.*:21: Error: expect vd is even
++.*:21: Error: expect vd is even
++.*:21: Error: illegal operands `vmadot1us v1,v4,v5,i4'
++.*:22: Error: expect vd is even
++.*:22: Error: expect vd is even
++.*:22: Error: illegal operands `vmadot1us v1,v4,v5,i8'
++.*:24: Error: expect vd is even
++.*:24: Error: expect vd is even
++.*:24: Error: illegal operands `vmadot2u v1,v4,v5,i4'
++.*:25: Error: expect vd is even
++.*:25: Error: expect vd is even
++.*:25: Error: illegal operands `vmadot2u v1,v4,v5,i8'
++.*:27: Error: expect vd is even
++.*:27: Error: expect vd is even
++.*:27: Error: illegal operands `vmadot2 v1,v4,v5,i4'
++.*:28: Error: expect vd is even
++.*:28: Error: expect vd is even
++.*:28: Error: illegal operands `vmadot2 v1,v4,v5,i8'
++.*:30: Error: expect vd is even
++.*:30: Error: expect vd is even
++.*:30: Error: illegal operands `vmadot2su v1,v4,v5,i4'
++.*:31: Error: expect vd is even
++.*:31: Error: expect vd is even
++.*:31: Error: illegal operands `vmadot2su v1,v4,v5,i8'
++.*:33: Error: expect vd is even
++.*:33: Error: expect vd is even
++.*:33: Error: illegal operands `vmadot2us v1,v4,v5,i4'
++.*:34: Error: expect vd is even
++.*:34: Error: expect vd is even
++.*:34: Error: illegal operands `vmadot2us v1,v4,v5,i8'
++.*:36: Error: expect vd is even
++.*:36: Error: expect vd is even
++.*:36: Error: illegal operands `vmadot3u v1,v4,v5,i4'
++.*:37: Error: expect vd is even
++.*:37: Error: expect vd is even
++.*:37: Error: illegal operands `vmadot3u v1,v4,v5,i8'
++.*:39: Error: expect vd is even
++.*:39: Error: expect vd is even
++.*:39: Error: illegal operands `vmadot3 v1,v4,v5,i4'
++.*:40: Error: expect vd is even
++.*:40: Error: expect vd is even
++.*:40: Error: illegal operands `vmadot3 v1,v4,v5,i8'
++.*:42: Error: expect vd is even
++.*:42: Error: expect vd is even
++.*:42: Error: illegal operands `vmadot3su v1,v4,v5,i4'
++.*:43: Error: expect vd is even
++.*:43: Error: expect vd is even
++.*:43: Error: illegal operands `vmadot3su v1,v4,v5,i8'
++.*:45: Error: expect vd is even
++.*:45: Error: expect vd is even
++.*:45: Error: illegal operands `vmadot3us v1,v4,v5,i4'
++.*:46: Error: expect vd is even
++.*:46: Error: expect vd is even
++.*:46: Error: illegal operands `vmadot3us v1,v4,v5,i8'
++.*:49: Error: expect vd is even
++.*:49: Error: expect vd is even
++.*:49: Error: illegal operands `vmadotu.sp v1,v4,v5,v0,0,i4'
++.*:50: Error: expect vd is even
++.*:50: Error: expect vd is even
++.*:50: Error: illegal operands `vmadotu.sp v1,v4,v5,v0,0,i8'
++.*:51: Error: expect vd is even
++.*:51: Error: expect vd is even
++.*:51: Error: illegal operands `vmadotu.sp v1,v4,v5,v1,0,i4'
++.*:52: Error: expect vd is even
++.*:52: Error: expect vd is even
++.*:52: Error: illegal operands `vmadotu.sp v1,v4,v5,v1,0,i8'
++.*:54: Error: expect vd is even
++.*:54: Error: expect vd is even
++.*:54: Error: illegal operands `vmadot.sp v1,v4,v5,v0,0,i4'
++.*:55: Error: expect vd is even
++.*:55: Error: expect vd is even
++.*:55: Error: illegal operands `vmadot.sp v1,v4,v5,v0,0,i8'
++.*:56: Error: expect vd is even
++.*:56: Error: expect vd is even
++.*:56: Error: illegal operands `vmadot.sp v1,v4,v5,v1,0,i4'
++.*:57: Error: expect vd is even
++.*:57: Error: expect vd is even
++.*:57: Error: illegal operands `vmadot.sp v1,v4,v5,v1,0,i8'
++.*:59: Error: expect vd is even
++.*:59: Error: expect vd is even
++.*:59: Error: illegal operands `vmadotsu.sp v1,v4,v5,v0,0,i4'
++.*:60: Error: expect vd is even
++.*:60: Error: expect vd is even
++.*:60: Error: illegal operands `vmadotsu.sp v1,v4,v5,v0,0,i8'
++.*:61: Error: expect vd is even
++.*:61: Error: expect vd is even
++.*:61: Error: illegal operands `vmadotsu.sp v1,v4,v5,v1,0,i4'
++.*:62: Error: expect vd is even
++.*:62: Error: expect vd is even
++.*:62: Error: illegal operands `vmadotsu.sp v1,v4,v5,v1,0,i8'
++.*:64: Error: expect vd is even
++.*:64: Error: expect vd is even
++.*:64: Error: illegal operands `vmadotus.sp v1,v4,v5,v0,0,i4'
++.*:65: Error: expect vd is even
++.*:65: Error: expect vd is even
++.*:65: Error: illegal operands `vmadotus.sp v1,v4,v5,v0,0,i8'
++.*:66: Error: expect vd is even
++.*:66: Error: expect vd is even
++.*:66: Error: illegal operands `vmadotus.sp v1,v4,v5,v1,0,i4'
++.*:67: Error: expect vd is even
++.*:67: Error: expect vd is even
++.*:67: Error: illegal operands `vmadotus.sp v1,v4,v5,v1,0,i8'
++.*:69: Error: expect vd is even
++.*:69: Error: expect vd is even
++.*:69: Error: illegal operands `vmadotu.sp v1,v4,v5,v0,1,i4'
++.*:70: Error: expect vd is even
++.*:70: Error: expect vd is even
++.*:70: Error: illegal operands `vmadotu.sp v1,v4,v5,v0,1,i8'
++.*:71: Error: expect vd is even
++.*:71: Error: expect vd is even
++.*:71: Error: illegal operands `vmadotu.sp v1,v4,v5,v1,1,i4'
++.*:72: Error: expect vd is even
++.*:72: Error: expect vd is even
++.*:72: Error: illegal operands `vmadotu.sp v1,v4,v5,v1,1,i8'
++.*:74: Error: expect vd is even
++.*:74: Error: expect vd is even
++.*:74: Error: illegal operands `vmadot.sp v1,v4,v5,v0,1,i4'
++.*:75: Error: expect vd is even
++.*:75: Error: expect vd is even
++.*:75: Error: illegal operands `vmadot.sp v1,v4,v5,v0,1,i8'
++.*:76: Error: expect vd is even
++.*:76: Error: expect vd is even
++.*:76: Error: illegal operands `vmadot.sp v1,v4,v5,v1,1,i4'
++.*:77: Error: expect vd is even
++.*:77: Error: expect vd is even
++.*:77: Error: illegal operands `vmadot.sp v1,v4,v5,v1,1,i8'
++.*:79: Error: expect vd is even
++.*:79: Error: expect vd is even
++.*:79: Error: illegal operands `vmadotsu.sp v1,v4,v5,v0,1,i4'
++.*:80: Error: expect vd is even
++.*:80: Error: expect vd is even
++.*:80: Error: illegal operands `vmadotsu.sp v1,v4,v5,v0,1,i8'
++.*:81: Error: expect vd is even
++.*:81: Error: expect vd is even
++.*:81: Error: illegal operands `vmadotsu.sp v1,v4,v5,v1,1,i4'
++.*:82: Error: expect vd is even
++.*:82: Error: expect vd is even
++.*:82: Error: illegal operands `vmadotsu.sp v1,v4,v5,v1,1,i8'
++.*:84: Error: expect vd is even
++.*:84: Error: expect vd is even
++.*:84: Error: illegal operands `vmadotus.sp v1,v4,v5,v0,1,i4'
++.*:85: Error: expect vd is even
++.*:85: Error: expect vd is even
++.*:85: Error: illegal operands `vmadotus.sp v1,v4,v5,v0,1,i8'
++.*:86: Error: expect vd is even
++.*:86: Error: expect vd is even
++.*:86: Error: illegal operands `vmadotus.sp v1,v4,v5,v1,1,i4'
++.*:87: Error: expect vd is even
++.*:87: Error: expect vd is even
++.*:87: Error: illegal operands `vmadotus.sp v1,v4,v5,v1,1,i8'
++.*:90: Error: bad width field, width only support i8
++.*:90: Error: illegal operands `vmadot1u v2,v4,v5,i4'
++.*:91: Error: bad width field, width only support i8
++.*:91: Error: illegal operands `vmadot1 v2,v4,v5,i4'
++.*:92: Error: bad width field, width only support i8
++.*:92: Error: illegal operands `vmadot1su v2,v4,v5,i4'
++.*:93: Error: bad width field, width only support i8
++.*:93: Error: illegal operands `vmadot1us v2,v4,v5,i4'
++.*:94: Error: bad width field, width only support i8
++.*:94: Error: illegal operands `vmadot2u v2,v4,v5,i4'
++.*:95: Error: bad width field, width only support i8
++.*:95: Error: illegal operands `vmadot2 v2,v4,v5,i4'
++.*:96: Error: bad width field, width only support i8
++.*:96: Error: illegal operands `vmadot2su v2,v4,v5,i4'
++.*:97: Error: bad width field, width only support i8
++.*:97: Error: illegal operands `vmadot2us v2,v4,v5,i4'
++.*:98: Error: bad width field, width only support i8
++.*:98: Error: illegal operands `vmadot3u v2,v4,v5,i4'
++.*:99: Error: bad width field, width only support i8
++.*:99: Error: illegal operands `vmadot3 v2,v4,v5,i4'
++.*:100: Error: bad width field, width only support i8
++.*:100: Error: illegal operands `vmadot3su v2,v4,v5,i4'
++.*:101: Error: bad width field, width only support i8
++.*:101: Error: illegal operands `vmadot3us v2,v4,v5,i4'
++.*:103: Error: bad value for uimm2 field, value must be 0..1
++.*:104: Error: bad value for uimm2 field, value must be 0..1
++.*:106: Error: bad value for uimm2 field, value must be 0..1
++.*:107: Error: bad value for uimm2 field, value must be 0..1
++.*:109: Error: bad value for uimm2 field, value must be 0..1
++.*:110: Error: bad value for uimm2 field, value must be 0..1
++.*:112: Error: bad value for uimm2 field, value must be 0..1
++.*:113: Error: bad value for uimm2 field, value must be 0..1
++.*:115: Error: bad value for uimm2 field, value must be 0..3
++.*:116: Error: bad value for uimm2 field, value must be 0..3
++.*:118: Error: bad value for uimm2 field, value must be 0..3
++.*:119: Error: bad value for uimm2 field, value must be 0..3
++.*:121: Error: bad value for uimm2 field, value must be 0..3
++.*:122: Error: bad value for uimm2 field, value must be 0..3
++.*:124: Error: bad value for uimm2 field, value must be 0..3
++.*:125: Error: bad value for uimm2 field, value must be 0..3
++.*:128: Error: expect vd is even
++.*:128: Error: expect vd is even
++.*:128: Error: illegal operands `vfwmadot v1,v4,v3,16f'
++.*:129: Error: expect vd is even
++.*:129: Error: expect vd is even
++.*:129: Error: illegal operands `vfwmadot v1,v4,v3'
++.*:131: Error: expect vd is even
++.*:131: Error: expect vd is even
++.*:131: Error: illegal operands `vfwmadot1 v1,v4,v3,16f'
++.*:132: Error: expect vd is even
++.*:132: Error: expect vd is even
++.*:132: Error: illegal operands `vfwmadot1 v1,v4,v3'
++.*:134: Error: expect vd is even
++.*:134: Error: expect vd is even
++.*:134: Error: illegal operands `vfwmadot2 v1,v4,v3,16f'
++.*:135: Error: expect vd is even
++.*:135: Error: expect vd is even
++.*:135: Error: illegal operands `vfwmadot2 v1,v4,v3'
++.*:137: Error: expect vd is even
++.*:137: Error: expect vd is even
++.*:137: Error: illegal operands `vfwmadot3 v1,v4,v3,16f'
++.*:138: Error: expect vd is even
++.*:138: Error: expect vd is even
++.*:138: Error: illegal operands `vfwmadot3 v1,v4,v3'
++.*:141: Error: expect vd is even
++.*:141: Error: illegal operands `vpack.vv v1,v3,v4,0'
++.*:142: Error: expect vd is even
++.*:142: Error: illegal operands `vpack.vv v1,v3,v4,3'
++.*:144: Error: expect vd is even
++.*:144: Error: illegal operands `vupack.vv v1,v3,v4,0'
++.*:145: Error: expect vd is even
++.*:145: Error: illegal operands `vupack.vv v1,v3,v4,3'
+\ No newline at end of file
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.s
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0-fail.s
+@@ -0,0 +1,145 @@
++target:
++    vmadot v1, v3, v4, i4
++    vmadot v1, v3, v4, i8
++#
++    vmadotu v1, v3, v4, i4
++    vmadotu v1, v3, v4, i8
++#
++    vmadotsu v1, v3, v4, i4
++    vmadotsu v1, v3, v4, i8
++#
++    vmadotus v1, v3, v4, i4
++    vmadotus v1, v3, v4, i8
++
++#
++    vmadot1 v1, v4, v5, i4
++    vmadot1 v1, v4, v5, i8
++#
++    vmadot1su v1, v4, v5, i4
++    vmadot1su v1, v4, v5, i8
++#
++    vmadot1us v1, v4, v5, i4
++    vmadot1us v1, v4, v5, i8
++#
++    vmadot2u v1, v4, v5, i4
++    vmadot2u v1, v4, v5, i8
++#
++    vmadot2 v1, v4, v5, i4
++    vmadot2 v1, v4, v5, i8
++#
++    vmadot2su v1, v4, v5, i4
++    vmadot2su v1, v4, v5, i8
++#
++    vmadot2us v1, v4, v5, i4
++    vmadot2us v1, v4, v5, i8
++#
++    vmadot3u v1, v4, v5, i4
++    vmadot3u v1, v4, v5, i8
++#
++    vmadot3 v1, v4, v5, i4
++    vmadot3 v1, v4, v5, i8
++#
++    vmadot3su v1, v4, v5, i4
++    vmadot3su v1, v4, v5, i8
++#
++    vmadot3us v1, v4, v5, i4
++    vmadot3us v1, v4, v5, i8
++
++#
++    vmadotu.sp v1, v4, v5, v0, 0, i4
++    vmadotu.sp v1, v4, v5, v0, 0, i8
++    vmadotu.sp v1, v4, v5, v1, 0, i4
++    vmadotu.sp v1, v4, v5, v1, 0, i8
++#
++    vmadot.sp v1, v4, v5, v0, 0, i4
++    vmadot.sp v1, v4, v5, v0, 0, i8
++    vmadot.sp v1, v4, v5, v1, 0, i4
++    vmadot.sp v1, v4, v5, v1, 0, i8
++#
++    vmadotsu.sp v1, v4, v5, v0, 0, i4
++    vmadotsu.sp v1, v4, v5, v0, 0, i8
++    vmadotsu.sp v1, v4, v5, v1, 0, i4
++    vmadotsu.sp v1, v4, v5, v1, 0, i8
++#
++    vmadotus.sp v1, v4, v5, v0, 0, i4
++    vmadotus.sp v1, v4, v5, v0, 0, i8
++    vmadotus.sp v1, v4, v5, v1, 0, i4
++    vmadotus.sp v1, v4, v5, v1, 0, i8
++#
++    vmadotu.sp v1, v4, v5, v0, 1, i4
++    vmadotu.sp v1, v4, v5, v0, 1, i8
++    vmadotu.sp v1, v4, v5, v1, 1, i4
++    vmadotu.sp v1, v4, v5, v1, 1, i8
++#
++    vmadot.sp v1, v4, v5, v0, 1, i4
++    vmadot.sp v1, v4, v5, v0, 1, i8
++    vmadot.sp v1, v4, v5, v1, 1, i4
++    vmadot.sp v1, v4, v5, v1, 1, i8
++#
++    vmadotsu.sp v1, v4, v5, v0, 1, i4
++    vmadotsu.sp v1, v4, v5, v0, 1, i8
++    vmadotsu.sp v1, v4, v5, v1, 1, i4
++    vmadotsu.sp v1, v4, v5, v1, 1, i8
++#
++    vmadotus.sp v1, v4, v5, v0, 1, i4
++    vmadotus.sp v1, v4, v5, v0, 1, i8
++    vmadotus.sp v1, v4, v5, v1, 1, i4
++    vmadotus.sp v1, v4, v5, v1, 1, i8
++
++#
++    vmadot1u v2, v4, v5, i4
++    vmadot1 v2, v4, v5, i4
++    vmadot1su v2, v4, v5, i4
++    vmadot1us v2, v4, v5, i4
++    vmadot2u v2, v4, v5, i4
++    vmadot2 v2, v4, v5, i4
++    vmadot2su v2, v4, v5, i4
++    vmadot2us v2, v4, v5, i4
++    vmadot3u v2, v4, v5, i4
++    vmadot3 v2, v4, v5, i4
++    vmadot3su v2, v4, v5, i4
++    vmadot3us v2, v4, v5, i4
++#
++    vmadotu.sp v2, v4, v5, v0, 2, i4
++    vmadotu.sp v2, v4, v5, v0, 3, i4
++
++    vmadot.sp v2, v4, v5, v0, 2, i4
++    vmadot.sp v2, v4, v5, v0, 3, i4
++
++    vmadotsu.sp v2, v4, v5, v0, 2, i4
++    vmadotsu.sp v2, v4, v5, v0, 3, i4
++
++    vmadotus.sp v2, v4, v5, v0, 2, i4
++    vmadotus.sp v2, v4, v5, v0, 3, i4
++
++    vmadotu.sp v2, v4, v5, v0, -1, i8
++    vmadotu.sp v2, v4, v5, v0, 4, i8
++
++    vmadot.sp v2, v4, v5, v0, -1, i8
++    vmadot.sp v2, v4, v5, v0, 4, i8
++
++    vmadotsu.sp v2, v4, v5, v0, -1, i8
++    vmadotsu.sp v2, v4, v5, v0, 4, i8
++
++    vmadotus.sp v2, v4, v5, v0, -1, i8
++    vmadotus.sp v2, v4, v5, v0, 4, i8
++
++#
++    vfwmadot v1, v4, v3, 16f
++    vfwmadot v1, v4, v3
++#
++    vfwmadot1 v1, v4, v3, 16f
++    vfwmadot1 v1, v4, v3
++#
++    vfwmadot2 v1, v4, v3, 16f
++    vfwmadot2 v1, v4, v3
++#
++    vfwmadot3 v1, v4, v3, 16f
++    vfwmadot3 v1, v4, v3
++
++#
++    vpack.vv v1, v3, v4, 0
++    vpack.vv v1, v3, v4, 3
++#
++    vupack.vv v1, v3, v4, 0
++    vupack.vv v1, v3, v4, 3
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.d
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.d
+@@ -0,0 +1,325 @@
++#as: -march=rv64gc_xsmtvdotii
++#objdump: -dr
++
++.*:[ 	]+file format .*
++
++
++Disassembly of section .text:
++0+000 <.text>:
++[ 	]+[0-9a-f]+:[ 	]+c241b12b[ 	]+smt.vmadot[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241b12b[ 	]+smt.vmadot[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+c241812b[ 	]+smt.vmadotu[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241812b[ 	]+smt.vmadotu[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+c241a12b[ 	]+smt.vmadotsu[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241a12b[ 	]+smt.vmadotsu[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+c241912b[ 	]+smt.vmadotus[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241912b[ 	]+smt.vmadotus[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+e652012b[ 	]+smt.vmadot1u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652312b[ 	]+smt.vmadot1[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652212b[ 	]+smt.vmadot1su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652112b[ 	]+smt.vmadot1us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652412b[ 	]+smt.vmadot2u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652712b[ 	]+smt.vmadot2[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652612b[ 	]+smt.vmadot2su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652512b[ 	]+smt.vmadot2us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652812b[ 	]+smt.vmadot3u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652b12b[ 	]+smt.vmadot3[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652a12b[ 	]+smt.vmadot3su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652912b[ 	]+smt.vmadot3us[ 	]+v2,v4,v5
++
++[ 	]+[0-9a-f]+:[ 	]+c852012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c852312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c852212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c852112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852812b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52812b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852b12b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52b12b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852a12b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52a12b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852912b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52912b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e85281ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea5281ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852b1ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52b1ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852a1ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52a1ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e85291ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea5291ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+cc41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+cc41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+ce41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ce41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+d041812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d041f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+d241812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d241f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+d441812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d441f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+d641812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d641f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+d841812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d841f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+da41812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+da41f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+ec41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ec41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+ee41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ee41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+f041812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f041f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+f241812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f241f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+f441812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f441f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+f641812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f641f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+f841812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f841f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+fa41812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+fa41f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+623100ab[ 	]+smt.vnpack.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+623130ab[ 	]+smt.vnpack.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+623140ab[ 	]+smt.vnspack.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+623170ab[ 	]+smt.vnspack.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+423100ab[ 	]+smt.vnpack4.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+423130ab[ 	]+smt.vnpack4.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+423140ab[ 	]+smt.vnspack4.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+423170ab[ 	]+smt.vnspack4.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+6641812b[ 	]+smt.vpack.vv[ 	]+v2,v3,v4,0
++[ 	]+[0-9a-f]+:[ 	]+6641b12b[ 	]+smt.vpack.vv[ 	]+v2,v3,v4,3
++
++[ 	]+[0-9a-f]+:[ 	]+6641c12b[ 	]+smt.vupack.vv[ 	]+v2,v3,v4,0
++[ 	]+[0-9a-f]+:[ 	]+6641f12b[ 	]+smt.vupack.vv[ 	]+v2,v3,v4,3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32412b[ 	]+smt.vfwmadot[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32412b[ 	]+smt.vfwmadot[ 	]+v2,v4,v3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32512b[ 	]+smt.vfwmadot1[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32512b[ 	]+smt.vfwmadot1[ 	]+v2,v4,v3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32612b[ 	]+smt.vfwmadot2[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32612b[ 	]+smt.vfwmadot2[ 	]+v2,v4,v3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32712b[ 	]+smt.vfwmadot3[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32712b[ 	]+smt.vfwmadot3[ 	]+v2,v4,v3
++
++[ 	]+[0-9a-f]+:[ 	]+c241b12b[ 	]+smt.vmadot[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241b12b[ 	]+smt.vmadot[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+c241812b[ 	]+smt.vmadotu[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241812b[ 	]+smt.vmadotu[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+c241a12b[ 	]+smt.vmadotsu[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241a12b[ 	]+smt.vmadotsu[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+c241912b[ 	]+smt.vmadotus[ 	]+v2,v3,v4,i4
++[ 	]+[0-9a-f]+:[ 	]+e241912b[ 	]+smt.vmadotus[ 	]+v2,v3,v4
++
++[ 	]+[0-9a-f]+:[ 	]+e652012b[ 	]+smt.vmadot1u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652312b[ 	]+smt.vmadot1[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652212b[ 	]+smt.vmadot1su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652112b[ 	]+smt.vmadot1us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652412b[ 	]+smt.vmadot2u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652712b[ 	]+smt.vmadot2[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652612b[ 	]+smt.vmadot2su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652512b[ 	]+smt.vmadot2us[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652812b[ 	]+smt.vmadot3u[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652b12b[ 	]+smt.vmadot3[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652a12b[ 	]+smt.vmadot3su[ 	]+v2,v4,v5
++[ 	]+[0-9a-f]+:[ 	]+e652912b[ 	]+smt.vmadot3us[ 	]+v2,v4,v5
++
++[ 	]+[0-9a-f]+:[ 	]+c852012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52012b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c852312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52312b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c852212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52212b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c852112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+e852112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ca52112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ea52112b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,0,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5201ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5231ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5221ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+c85211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,1,i4
++[ 	]+[0-9a-f]+:[ 	]+e85211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,1,i8
++[ 	]+[0-9a-f]+:[ 	]+ca5211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,1,i4
++[ 	]+[0-9a-f]+:[ 	]+ea5211ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,1,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852812b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52812b[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852b12b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52b12b[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852a12b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52a12b[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852912b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,2,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52912b[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,2,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e85281ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea5281ab[ 	]+smt.vmadotu.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852b1ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52b1ab[ 	]+smt.vmadot.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e852a1ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea52a1ab[ 	]+smt.vmadotsu.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+e85291ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v0,3,i8
++[ 	]+[0-9a-f]+:[ 	]+ea5291ab[ 	]+smt.vmadotus.sp[ 	]+v2,v4,v5,v1,3,i8
++
++[ 	]+[0-9a-f]+:[ 	]+cc41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+cc41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+ce41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+ce41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+d041812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d041f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+d241812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d241f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+d441812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d441f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+d641812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d641f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+d841812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,0,i4
++[ 	]+[0-9a-f]+:[ 	]+d841f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,7,i4
++[ 	]+[0-9a-f]+:[ 	]+da41812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,0,i4
++[ 	]+[0-9a-f]+:[ 	]+da41f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,7,i4
++
++[ 	]+[0-9a-f]+:[ 	]+ec41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ec41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+ee41812b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+ee41f12b[ 	]+smt.vmadotu.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+f041812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f041f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+f241812b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f241f12b[ 	]+smt.vmadot.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+f441812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f441f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+f641812b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f641f12b[ 	]+smt.vmadotsu.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+f841812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,0,i8
++[ 	]+[0-9a-f]+:[ 	]+f841f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v0,7,i8
++[ 	]+[0-9a-f]+:[ 	]+fa41812b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,0,i8
++[ 	]+[0-9a-f]+:[ 	]+fa41f12b[ 	]+smt.vmadotus.hp[ 	]+v2,v3,v4,v1,7,i8
++
++[ 	]+[0-9a-f]+:[ 	]+623100ab[ 	]+smt.vnpack.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+623130ab[ 	]+smt.vnpack.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+623140ab[ 	]+smt.vnspack.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+623170ab[ 	]+smt.vnspack.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+423100ab[ 	]+smt.vnpack4.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+423130ab[ 	]+smt.vnpack4.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+423140ab[ 	]+smt.vnspack4.vv[ 	]+v1,v2,v3,0
++[ 	]+[0-9a-f]+:[ 	]+423170ab[ 	]+smt.vnspack4.vv[ 	]+v1,v2,v3,3
++
++[ 	]+[0-9a-f]+:[ 	]+6641812b[ 	]+smt.vpack.vv[ 	]+v2,v3,v4,0
++[ 	]+[0-9a-f]+:[ 	]+6641b12b[ 	]+smt.vpack.vv[ 	]+v2,v3,v4,3
++
++[ 	]+[0-9a-f]+:[ 	]+6641c12b[ 	]+smt.vupack.vv[ 	]+v2,v3,v4,0
++[ 	]+[0-9a-f]+:[ 	]+6641f12b[ 	]+smt.vupack.vv[ 	]+v2,v3,v4,3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32412b[ 	]+smt.vfwmadot[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32412b[ 	]+smt.vfwmadot[ 	]+v2,v4,v3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32512b[ 	]+smt.vfwmadot1[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32512b[ 	]+smt.vfwmadot1[ 	]+v2,v4,v3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32612b[ 	]+smt.vfwmadot2[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32612b[ 	]+smt.vfwmadot2[ 	]+v2,v4,v3
++
++[ 	]+[0-9a-f]+:[ 	]+9e32712b[ 	]+smt.vfwmadot3[ 	]+v2,v4,v3
++[ 	]+[0-9a-f]+:[ 	]+9e32712b[ 	]+smt.vfwmadot3[ 	]+v2,v4,v3
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.s
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-ai-2_0.s
+@@ -0,0 +1,318 @@
++#
++    smt.vmadot v2, v3, v4, i4
++    smt.vmadot v2, v3, v4, i8
++#
++    smt.vmadotu v2, v3, v4, i4
++    smt.vmadotu v2, v3, v4, i8
++#
++    smt.vmadotsu v2, v3, v4, i4
++    smt.vmadotsu v2, v3, v4, i8
++#
++    smt.vmadotus v2, v3, v4, i4
++    smt.vmadotus v2, v3, v4, i8
++#
++    smt.vmadot1u v2, v4, v5, i8
++    smt.vmadot1 v2, v4, v5, i8
++    smt.vmadot1su v2, v4, v5, i8
++    smt.vmadot1us v2, v4, v5, i8
++    smt.vmadot2u v2, v4, v5, i8
++    smt.vmadot2 v2, v4, v5, i8
++    smt.vmadot2su v2, v4, v5, i8
++    smt.vmadot2us v2, v4, v5, i8
++    smt.vmadot3u v2, v4, v5, i8
++    smt.vmadot3 v2, v4, v5, i8
++    smt.vmadot3su v2, v4, v5, i8
++    smt.vmadot3us v2, v4, v5, i8
++#
++    smt.vmadotu.sp v2, v4, v5, v0, 0, i4
++    smt.vmadotu.sp v2, v4, v5, v0, 0, i8
++    smt.vmadotu.sp v2, v4, v5, v1, 0, i4
++    smt.vmadotu.sp v2, v4, v5, v1, 0, i8
++#
++    smt.vmadot.sp v2, v4, v5, v0, 0, i4
++    smt.vmadot.sp v2, v4, v5, v0, 0, i8
++    smt.vmadot.sp v2, v4, v5, v1, 0, i4
++    smt.vmadot.sp v2, v4, v5, v1, 0, i8
++#
++    smt.vmadotsu.sp v2, v4, v5, v0, 0, i4
++    smt.vmadotsu.sp v2, v4, v5, v0, 0, i8
++    smt.vmadotsu.sp v2, v4, v5, v1, 0, i4
++    smt.vmadotsu.sp v2, v4, v5, v1, 0, i8
++#
++    smt.vmadotus.sp v2, v4, v5, v0, 0, i4
++    smt.vmadotus.sp v2, v4, v5, v0, 0, i8
++    smt.vmadotus.sp v2, v4, v5, v1, 0, i4
++    smt.vmadotus.sp v2, v4, v5, v1, 0, i8
++#
++    smt.vmadotu.sp v2, v4, v5, v0, 1, i4
++    smt.vmadotu.sp v2, v4, v5, v0, 1, i8
++    smt.vmadotu.sp v2, v4, v5, v1, 1, i4
++    smt.vmadotu.sp v2, v4, v5, v1, 1, i8
++#
++    smt.vmadot.sp v2, v4, v5, v0, 1, i4
++    smt.vmadot.sp v2, v4, v5, v0, 1, i8
++    smt.vmadot.sp v2, v4, v5, v1, 1, i4
++    smt.vmadot.sp v2, v4, v5, v1, 1, i8
++#
++    smt.vmadotsu.sp v2, v4, v5, v0, 1, i4
++    smt.vmadotsu.sp v2, v4, v5, v0, 1, i8
++    smt.vmadotsu.sp v2, v4, v5, v1, 1, i4
++    smt.vmadotsu.sp v2, v4, v5, v1, 1, i8
++#
++    smt.vmadotus.sp v2, v4, v5, v0, 1, i4
++    smt.vmadotus.sp v2, v4, v5, v0, 1, i8
++    smt.vmadotus.sp v2, v4, v5, v1, 1, i4
++    smt.vmadotus.sp v2, v4, v5, v1, 1, i8
++#
++    smt.vmadotu.sp v2, v4, v5, v0, 2, i8
++    smt.vmadotu.sp v2, v4, v5, v1, 2, i8
++#
++    smt.vmadot.sp v2, v4, v5, v0, 2, i8
++    smt.vmadot.sp v2, v4, v5, v1, 2, i8
++#
++    smt.vmadotsu.sp v2, v4, v5, v0, 2, i8
++    smt.vmadotsu.sp v2, v4, v5, v1, 2, i8
++#
++    smt.vmadotus.sp v2, v4, v5, v0, 2, i8
++    smt.vmadotus.sp v2, v4, v5, v1, 2, i8
++#
++    smt.vmadotu.sp v2, v4, v5, v0, 3, i8
++    smt.vmadotu.sp v2, v4, v5, v1, 3, i8
++#
++    smt.vmadot.sp v2, v4, v5, v0, 3, i8
++    smt.vmadot.sp v2, v4, v5, v1, 3, i8
++#
++    smt.vmadotsu.sp v2, v4, v5, v0, 3, i8
++    smt.vmadotsu.sp v2, v4, v5, v1, 3, i8
++#
++    smt.vmadotus.sp v2, v4, v5, v0, 3, i8
++    smt.vmadotus.sp v2, v4, v5, v1, 3, i8
++#
++    smt.vmadotu.hp v2, v3, v4, v0, 0, i4
++    smt.vmadotu.hp v2, v3, v4, v0, 7, i4
++    smt.vmadotu.hp v2, v3, v4, v1, 0, i4
++    smt.vmadotu.hp v2, v3, v4, v1, 7, i4
++#
++    smt.vmadot.hp v2, v3, v4, v0, 0, i4
++    smt.vmadot.hp v2, v3, v4, v0, 7, i4
++    smt.vmadot.hp v2, v3, v4, v1, 0, i4
++    smt.vmadot.hp v2, v3, v4, v1, 7, i4
++#
++    smt.vmadotsu.hp v2, v3, v4, v0, 0, i4
++    smt.vmadotsu.hp v2, v3, v4, v0, 7, i4
++    smt.vmadotsu.hp v2, v3, v4, v1, 0, i4
++    smt.vmadotsu.hp v2, v3, v4, v1, 7, i4
++#
++    smt.vmadotus.hp v2, v3, v4, v0, 0, i4
++    smt.vmadotus.hp v2, v3, v4, v0, 7, i4
++    smt.vmadotus.hp v2, v3, v4, v1, 0, i4
++    smt.vmadotus.hp v2, v3, v4, v1, 7, i4
++#
++    smt.vmadotu.hp v2, v3, v4, v0, 0, i8
++    smt.vmadotu.hp v2, v3, v4, v0, 7, i8
++    smt.vmadotu.hp v2, v3, v4, v1, 0, i8
++    smt.vmadotu.hp v2, v3, v4, v1, 7, i8
++#
++    smt.vmadot.hp v2, v3, v4, v0, 0, i8
++    smt.vmadot.hp v2, v3, v4, v0, 7, i8
++    smt.vmadot.hp v2, v3, v4, v1, 0, i8
++    smt.vmadot.hp v2, v3, v4, v1, 7, i8
++#
++    smt.vmadotsu.hp v2, v3, v4, v0, 0, i8
++    smt.vmadotsu.hp v2, v3, v4, v0, 7, i8
++    smt.vmadotsu.hp v2, v3, v4, v1, 0, i8
++    smt.vmadotsu.hp v2, v3, v4, v1, 7, i8
++#
++    smt.vmadotus.hp v2, v3, v4, v0, 0, i8
++    smt.vmadotus.hp v2, v3, v4, v0, 7, i8
++    smt.vmadotus.hp v2, v3, v4, v1, 0, i8
++    smt.vmadotus.hp v2, v3, v4, v1, 7, i8
++#
++    smt.vnpack.vv v1, v2, v3, 0
++    smt.vnpack.vv v1, v2, v3, 3
++#
++    smt.vnspack.vv v1, v2, v3, 0
++    smt.vnspack.vv v1, v2, v3, 3
++#
++    smt.vnpack4.vv v1, v2, v3, 0
++    smt.vnpack4.vv v1, v2, v3, 3
++#
++    smt.vnspack4.vv v1, v2, v3, 0
++    smt.vnspack4.vv v1, v2, v3, 3
++#
++    smt.vpack.vv v2, v3, v4, 0
++    smt.vpack.vv v2, v3, v4, 3
++#
++    smt.vupack.vv v2, v3, v4, 0
++    smt.vupack.vv v2, v3, v4, 3
++#
++    smt.vfwmadot v2, v4, v3, fp16
++    smt.vfwmadot v2, v4, v3
++#
++    smt.vfwmadot1 v2, v4, v3, fp16
++    smt.vfwmadot1 v2, v4, v3
++#
++    smt.vfwmadot2 v2, v4, v3, fp16
++    smt.vfwmadot2 v2, v4, v3
++#
++    smt.vfwmadot3 v2, v4, v3, fp16
++    smt.vfwmadot3 v2, v4, v3
++#
++    vmadot v2, v3, v4, i4
++    vmadot v2, v3, v4, i8
++#
++    vmadotu v2, v3, v4, i4
++    vmadotu v2, v3, v4, i8
++#
++    vmadotsu v2, v3, v4, i4
++    vmadotsu v2, v3, v4, i8
++#
++    vmadotus v2, v3, v4, i4
++    vmadotus v2, v3, v4, i8
++#
++    vmadot1u v2, v4, v5, i8
++    vmadot1 v2, v4, v5, i8
++    vmadot1su v2, v4, v5, i8
++    vmadot1us v2, v4, v5, i8
++    vmadot2u v2, v4, v5, i8
++    vmadot2 v2, v4, v5, i8
++    vmadot2su v2, v4, v5, i8
++    vmadot2us v2, v4, v5, i8
++    vmadot3u v2, v4, v5, i8
++    vmadot3 v2, v4, v5, i8
++    vmadot3su v2, v4, v5, i8
++    vmadot3us v2, v4, v5, i8
++#
++    vmadotu.sp v2, v4, v5, v0, 0, i4
++    vmadotu.sp v2, v4, v5, v0, 0, i8
++    vmadotu.sp v2, v4, v5, v1, 0, i4
++    vmadotu.sp v2, v4, v5, v1, 0, i8
++#
++    vmadot.sp v2, v4, v5, v0, 0, i4
++    vmadot.sp v2, v4, v5, v0, 0, i8
++    vmadot.sp v2, v4, v5, v1, 0, i4
++    vmadot.sp v2, v4, v5, v1, 0, i8
++#
++    vmadotsu.sp v2, v4, v5, v0, 0, i4
++    vmadotsu.sp v2, v4, v5, v0, 0, i8
++    vmadotsu.sp v2, v4, v5, v1, 0, i4
++    vmadotsu.sp v2, v4, v5, v1, 0, i8
++#
++    vmadotus.sp v2, v4, v5, v0, 0, i4
++    vmadotus.sp v2, v4, v5, v0, 0, i8
++    vmadotus.sp v2, v4, v5, v1, 0, i4
++    vmadotus.sp v2, v4, v5, v1, 0, i8
++#
++    vmadotu.sp v2, v4, v5, v0, 1, i4
++    vmadotu.sp v2, v4, v5, v0, 1, i8
++    vmadotu.sp v2, v4, v5, v1, 1, i4
++    vmadotu.sp v2, v4, v5, v1, 1, i8
++#
++    vmadot.sp v2, v4, v5, v0, 1, i4
++    vmadot.sp v2, v4, v5, v0, 1, i8
++    vmadot.sp v2, v4, v5, v1, 1, i4
++    vmadot.sp v2, v4, v5, v1, 1, i8
++#
++    vmadotsu.sp v2, v4, v5, v0, 1, i4
++    vmadotsu.sp v2, v4, v5, v0, 1, i8
++    vmadotsu.sp v2, v4, v5, v1, 1, i4
++    vmadotsu.sp v2, v4, v5, v1, 1, i8
++#
++    vmadotus.sp v2, v4, v5, v0, 1, i4
++    vmadotus.sp v2, v4, v5, v0, 1, i8
++    vmadotus.sp v2, v4, v5, v1, 1, i4
++    vmadotus.sp v2, v4, v5, v1, 1, i8
++#
++    vmadotu.sp v2, v4, v5, v0, 2, i8
++    vmadotu.sp v2, v4, v5, v1, 2, i8
++#
++    vmadot.sp v2, v4, v5, v0, 2, i8
++    vmadot.sp v2, v4, v5, v1, 2, i8
++#
++    vmadotsu.sp v2, v4, v5, v0, 2, i8
++    vmadotsu.sp v2, v4, v5, v1, 2, i8
++#
++    vmadotus.sp v2, v4, v5, v0, 2, i8
++    vmadotus.sp v2, v4, v5, v1, 2, i8
++#
++    vmadotu.sp v2, v4, v5, v0, 3, i8
++    vmadotu.sp v2, v4, v5, v1, 3, i8
++#
++    vmadot.sp v2, v4, v5, v0, 3, i8
++    vmadot.sp v2, v4, v5, v1, 3, i8
++#
++    vmadotsu.sp v2, v4, v5, v0, 3, i8
++    vmadotsu.sp v2, v4, v5, v1, 3, i8
++#
++    vmadotus.sp v2, v4, v5, v0, 3, i8
++    vmadotus.sp v2, v4, v5, v1, 3, i8
++#
++    vmadotu.hp v2, v3, v4, v0, 0, i4
++    vmadotu.hp v2, v3, v4, v0, 7, i4
++    vmadotu.hp v2, v3, v4, v1, 0, i4
++    vmadotu.hp v2, v3, v4, v1, 7, i4
++#
++    vmadot.hp v2, v3, v4, v0, 0, i4
++    vmadot.hp v2, v3, v4, v0, 7, i4
++    vmadot.hp v2, v3, v4, v1, 0, i4
++    vmadot.hp v2, v3, v4, v1, 7, i4
++#
++    vmadotsu.hp v2, v3, v4, v0, 0, i4
++    vmadotsu.hp v2, v3, v4, v0, 7, i4
++    vmadotsu.hp v2, v3, v4, v1, 0, i4
++    vmadotsu.hp v2, v3, v4, v1, 7, i4
++#
++    vmadotus.hp v2, v3, v4, v0, 0, i4
++    vmadotus.hp v2, v3, v4, v0, 7, i4
++    vmadotus.hp v2, v3, v4, v1, 0, i4
++    vmadotus.hp v2, v3, v4, v1, 7, i4
++#
++    vmadotu.hp v2, v3, v4, v0, 0, i8
++    vmadotu.hp v2, v3, v4, v0, 7, i8
++    vmadotu.hp v2, v3, v4, v1, 0, i8
++    vmadotu.hp v2, v3, v4, v1, 7, i8
++#
++    vmadot.hp v2, v3, v4, v0, 0, i8
++    vmadot.hp v2, v3, v4, v0, 7, i8
++    vmadot.hp v2, v3, v4, v1, 0, i8
++    vmadot.hp v2, v3, v4, v1, 7, i8
++#
++    vmadotsu.hp v2, v3, v4, v0, 0, i8
++    vmadotsu.hp v2, v3, v4, v0, 7, i8
++    vmadotsu.hp v2, v3, v4, v1, 0, i8
++    vmadotsu.hp v2, v3, v4, v1, 7, i8
++#
++    vmadotus.hp v2, v3, v4, v0, 0, i8
++    vmadotus.hp v2, v3, v4, v0, 7, i8
++    vmadotus.hp v2, v3, v4, v1, 0, i8
++    vmadotus.hp v2, v3, v4, v1, 7, i8
++#
++    vnpack.vv v1, v2, v3, 0
++    vnpack.vv v1, v2, v3, 3
++#
++    vnspack.vv v1, v2, v3, 0
++    vnspack.vv v1, v2, v3, 3
++#
++    vnpack4.vv v1, v2, v3, 0
++    vnpack4.vv v1, v2, v3, 3
++#
++    vnspack4.vv v1, v2, v3, 0
++    vnspack4.vv v1, v2, v3, 3
++#
++    vpack.vv v2, v3, v4, 0
++    vpack.vv v2, v3, v4, 3
++#
++    vupack.vv v2, v3, v4, 0
++    vupack.vv v2, v3, v4, 3
++#
++    vfwmadot v2, v4, v3, fp16
++    vfwmadot v2, v4, v3
++#
++    vfwmadot1 v2, v4, v3, fp16
++    vfwmadot1 v2, v4, v3
++#
++    vfwmadot2 v2, v4, v3, fp16
++    vfwmadot2 v2, v4, v3
++#
++    vfwmadot3 v2, v4, v3, fp16
++    vfwmadot3 v2, v4, v3
+\ No newline at end of file
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-csr.d
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-csr.d
+@@ -0,0 +1,22 @@
++#as: -march=rv64if
++#source: spacemit-csr.s
++#objdump: -dr
++
++.*:[ 	]+file format .*
++
++Disassembly of section .text:
++
++0+000 <.text>:
++[ 	]+[0-9a-f]+:[ 	]+7c0023f3[ 	]+csrr[ 	]+t2,msetup
++[ 	]+[0-9a-f]+:[ 	]+7c1023f3[ 	]+csrr[ 	]+t2,mcpm
++[ 	]+[0-9a-f]+:[ 	]+7c2023f3[ 	]+csrr[ 	]+t2,mraop
++[ 	]+[0-9a-f]+:[ 	]+7c3023f3[ 	]+csrr[ 	]+t2,mswitch
++[ 	]+[0-9a-f]+:[ 	]+7cc023f3[ 	]+csrr[ 	]+t2,mbuserr
++[ 	]+[0-9a-f]+:[ 	]+7f0023f3[ 	]+csrr[ 	]+t2,ml2setup
++[ 	]+[0-9a-f]+:[ 	]+7f1023f3[ 	]+csrr[ 	]+t2,ml2buserr
++[ 	]+[0-9a-f]+:[ 	]+fd0023f3[ 	]+csrr[ 	]+t2,mpcfifo
++[ 	]+[0-9a-f]+:[ 	]+fd1023f3[ 	]+csrr[ 	]+t2,mdbginfo1
++[ 	]+[0-9a-f]+:[ 	]+fd2023f3[ 	]+csrr[ 	]+t2,mdbginfo2
++[ 	]+[0-9a-f]+:[ 	]+fd3023f3[ 	]+csrr[ 	]+t2,mdbginfo3
++[ 	]+[0-9a-f]+:[ 	]+5f0023f3[ 	]+csrr[ 	]+t2,sl2pid
++[ 	]+[0-9a-f]+:[ 	]+5f1023f3[ 	]+csrr[ 	]+t2,sl2part
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-csr.s
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit-csr.s
+@@ -0,0 +1,31 @@
++csrr t2, msetup
++csrr t2, mcpm
++csrr t2, mraop
++csrr t2, mswitch
++csrr t2, mbuserr
++csrr t2, ml2setup
++csrr t2, ml2buserr
++csrr t2, mpcfifo
++csrr t2, mdbginfo1
++csrr t2, mdbginfo2
++csrr t2, mdbginfo3
++csrr t2, sl2pid
++csrr t2, sl2part
++csrr t2, pmacfg0
++csrr t2, pmacfg2
++csrr t2, pmaaddr0
++csrr t2, pmaaddr1
++csrr t2, pmaaddr2
++csrr t2, pmaaddr3
++csrr t2, pmaaddr4
++csrr t2, pmaaddr5
++csrr t2, pmaaddr6
++csrr t2, pmaaddr7
++csrr t2, pmaaddr8
++csrr t2, pmaaddr9
++csrr t2, pmaaddr10
++csrr t2, pmaaddr11
++csrr t2, pmaaddr12
++csrr t2, pmaaddr13
++csrr t2, pmaaddr14
++csrr t2, pmaaddr15
+Index: binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit.exp
+===================================================================
+--- /dev/null
++++ binutils-2.44/gas/testsuite/gas/riscv/spacemit/spacemit.exp
+@@ -0,0 +1,27 @@
++# Expect script for RISC-V assembler tests.
++#   Copyright (C) 2011-2024 Free Software Foundation, Inc.
++#
++# This file is part of the GNU Binutils.
++#
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 3 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston,
++# MA 02110-1301, USA.
++
++if [istarget riscv*-*-*] {
++    run_dump_test "spacemit-ai-1_0"
++    run_dump_test "spacemit-ai-2_0-fail-with-prefix"
++    run_dump_test "spacemit-ai-2_0-fail"
++    run_dump_test "spacemit-ai-2_0"
++    run_dump_test "spacemit-csr"
++}
+Index: binutils-2.44/include/opcode/riscv-opc.h
+===================================================================
+--- binutils-2.44.orig/include/opcode/riscv-opc.h
++++ binutils-2.44/include/opcode/riscv-opc.h
+@@ -2153,8 +2153,8 @@
+ #define MASK_VMV4RV  0xfe0ff07f
+ #define MATCH_VMV8RV  0x9e03b057
+ #define MASK_VMV8RV  0xfe0ff07f
+-#define MATCH_VDOTVV  0xe4000057
+-#define MASK_VDOTVV  0xfc00707f
++// #define MATCH_VDOTVV  0xe4000057
++// #define MASK_VDOTVV  0xfc00707f
+ #define MATCH_VDOTUVV  0xe0000057
+ #define MASK_VDOTUVV  0xfc00707f
+ #define MATCH_VFDOTVV  0xe4001057
+@@ -2273,6 +2273,145 @@
+ #define MASK_C_NOT 0xfc7f
+ #define MATCH_C_MUL 0x9c41
+ #define MASK_C_MUL 0xfc63
++
++/* spacemit tme extension */
++/* SPACEMIT IME V2.0 */
++/* Int Matrix Multiplicative Accumulation */
++#define MATCH_SMT_VMADOT   0x8200302b
++#define MASK_SMT_VMADOT    0x9e0070ff
++#define MATCH_SMT_VMADOTU  0x8200002b
++#define MASK_SMT_VMADOTU   0x9e0070ff
++#define MATCH_SMT_VMADOTSU 0x8200202b
++#define MASK_SMT_VMADOTSU  0x9e0070ff
++#define MATCH_SMT_VMADOTUS 0x8200102b
++#define MASK_SMT_VMADOTUS  0x9e0070ff
++/* Int Sliding Window Multiplicative Accumulation */
++/* Sliding Value = 1 */
++#define MATCH_SMT_VMADOT1U 0x8600002b
++#define MASK_SMT_VMADOT1U  0x9e00f0ff
++#define MATCH_SMT_VMADOT1  0x8600302b
++#define MASK_SMT_VMADOT1   0x9e00f0ff
++#define MATCH_SMT_VMADOT1SU 0x8600202b
++#define MASK_SMT_VMADOT1SU 0x9e00f0ff
++#define MATCH_SMT_VMADOT1US 0x8600102b
++#define MASK_SMT_VMADOT1US 0x9e00f0ff
++/* Sliding Value = 2 */
++#define MATCH_SMT_VMADOT2U 0x8600402b
++#define MASK_SMT_VMADOT2U 0x9e00f0ff
++#define MATCH_SMT_VMADOT2 0x8600702b
++#define MASK_SMT_VMADOT2 0x9e00f0ff
++#define MATCH_SMT_VMADOT2SU 0x8600602b
++#define MASK_SMT_VMADOT2SU 0x9e00f0ff
++#define MATCH_SMT_VMADOT2US 0x8600502b
++#define MASK_SMT_VMADOT2US 0x9e00f0ff
++/* Sliding Value = 3 */
++#define MATCH_SMT_VMADOT3U 0x8600802b
++#define MASK_SMT_VMADOT3U 0x9e00f0ff
++#define MATCH_SMT_VMADOT3 0x8600b02b
++#define MASK_SMT_VMADOT3 0x9e00f0ff
++#define MATCH_SMT_VMADOT3SU 0x8600a02b
++#define MASK_SMT_VMADOT3SU 0x9e00f0ff
++#define MATCH_SMT_VMADOT3US 0x8600902b
++#define MASK_SMT_VMADOT3US 0x9e00f0ff
++/* Int Sparse Matrix Multi-Accumulation */
++#define MATCH_SMT_VMADOT_SP 0x8800302b
++#define MASK_SMT_VMADOT_SP 0x9c00707f
++#define MATCH_SMT_VMADOTSU_SP 0x8800202b
++#define MASK_SMT_VMADOTSU_SP 0x9c00707f
++#define MATCH_SMT_VMADOTU_SP 0x8800002b
++#define MASK_SMT_VMADOTU_SP 0x9c00707f
++#define MATCH_SMT_VMADOTUS_SP 0x8800102b
++#define MASK_SMT_VMADOTUS_SP 0x9c00707f
++/* Shaping High-Precision Matrix Multiplication Accumulation */
++#define MATCH_SMT_VMADOTU_HP 0x8c00002b
++#define MASK_SMT_VMADOTU_HP  0x9c00007f
++#define MATCH_SMT_VMADOT_HP  0x9000002b
++#define MASK_SMT_VMADOT_HP   0x9c00007f
++#define MATCH_SMT_VMADOTSU_HP 0x9400002b
++#define MASK_SMT_VMADOTSU_HP 0x9c00007f
++#define MATCH_SMT_VMADOTUS_HP 0x9800002b
++#define MASK_SMT_VMADOTUS_HP 0x9c00007f
++/* Floating-Point Expansion Matrix Multi-Accumulation */
++#define MATCH_SMT_VFWMADOT 0x9e00402b
++#define MASK_SMT_VFWMADOT 0x9e0070ff
++#define MATCH_SMT_VFWMADOT_FP16 0x9e00402b
++#define MASK_SMT_VFWMADOT_FP16 0xfe0070ff
++/* Floating-Point Sliding Window Expansion Multi-Accumulation */
++#define MATCH_SMT_VFWMADOT1 0x9e00502b
++#define MASK_SMT_VFWMADOT1  0x9e00f0ff
++#define MATCH_SMT_VFWMADOT1_FP16 0x9e00502b
++#define MASK_SMT_VFWMADOT1_FP16  0xfe00f0ff
++#define MATCH_SMT_VFWMADOT2 0x9e00602b
++#define MASK_SMT_VFWMADOT2  0x9e00f0ff
++#define MATCH_SMT_VFWMADOT2_FP16 0x9e00602b
++#define MASK_SMT_VFWMADOT2_FP16 0xfe00f0ff
++#define MATCH_SMT_VFWMADOT3 0x9e00702b
++#define MASK_SMT_VFWMADOT3  0x9e00f0ff
++#define MATCH_SMT_VFWMADOT3_FP16 0x9e00702b
++#define MASK_SMT_VFWMADOT3_FP16 0xfe00f0ff
++/* Element Indentation Assembly */
++#define MATCH_SMT_VNPACK_VV 0x6200002b
++#define MASK_SMT_VNPACK_VV 0xfe00407f
++#define MATCH_SMT_VNSPACK_VV 0x6200402b
++#define MASK_SMT_VNSPACK_VV 0xfe00407f
++#define MATCH_SMT_VNPACK4_VV 0x4200002b
++#define MASK_SMT_VNPACK4_VV 0xfe00407f
++#define MATCH_SMT_VNSPACK4_VV 0x4200402b
++#define MASK_SMT_VNSPACK4_VV 0xfe00407f
++#define MATCH_SMT_VPACK_VV 0x6600002b
++#define MASK_SMT_VPACK_VV 0xfe0040ff
++#define MATCH_SMT_VUPACK_VV 0x6600402b
++#define MASK_SMT_VUPACK_VV 0xfe0040ff
++
++/* SPACEMIT IME V1.0 */
++/* Int Matrix Multiplicative Accumulation */
++#define MATCH_SMT_VMADOT_I8   0xe200302b
++#define MASK_SMT_VMADOT_I8    0xfe0070ff
++#define MATCH_SMT_VMADOTU_I8  0xe200002b
++#define MASK_SMT_VMADOTU_I8   0xfe0070ff
++#define MATCH_SMT_VMADOTSU_I8 0xe200202b
++#define MASK_SMT_VMADOTSU_I8  0xfe0070ff
++#define MATCH_SMT_VMADOTUS_I8 0xe200102b
++#define MASK_SMT_VMADOTUS_I8  0xfe0070ff
++/* Int Sliding Window Multiplicative Accumulation */
++/* Sliding Value = 1 */
++#define MATCH_SMT_VMADOT1U_I8 0xe600002b
++#define MASK_SMT_VMADOT1U_I8  0xfe00f0ff
++#define MATCH_SMT_VMADOT1_I8    0xe600302b
++#define MASK_SMT_VMADOT1_I8     0xfe00f0ff
++#define MATCH_SMT_VMADOT1SU_I8  0xe600202b
++#define MASK_SMT_VMADOT1SU_I8   0xfe00f0ff
++#define MATCH_SMT_VMADOT1US_I8  0xe600102b
++#define MASK_SMT_VMADOT1US_I8   0xfe00f0ff
++/* Sliding Value = 2 */
++#define MATCH_SMT_VMADOT2U_I8   0xe600402b
++#define MASK_SMT_VMADOT2U_I8    0xfe00f0ff
++#define MATCH_SMT_VMADOT2_I8    0xe600702b
++#define MASK_SMT_VMADOT2_I8     0xfe00f0ff
++#define MATCH_SMT_VMADOT2SU_I8  0xe600602b
++#define MASK_SMT_VMADOT2SU_I8   0xfe00f0ff
++#define MATCH_SMT_VMADOT2US_I8  0xe600502b
++#define MASK_SMT_VMADOT2US_I8   0xfe00f0ff
++/* Sliding Value = 3 */
++#define MATCH_SMT_VMADOT3U_I8   0xe600802b
++#define MASK_SMT_VMADOT3U_I8    0xfe00f0ff
++#define MATCH_SMT_VMADOT3_I8    0xe600b02b
++#define MASK_SMT_VMADOT3_I8     0xfe00f0ff
++#define MATCH_SMT_VMADOT3SU_I8  0xe600a02b
++#define MASK_SMT_VMADOT3SU_I8   0xfe00f0ff
++#define MATCH_SMT_VMADOT3US_I8  0xe600902b
++#define MASK_SMT_VMADOT3US_I8   0xfe00f0ff
++
++/* RVV extensrion of JDSK */
++#define MATCH_SMT_VDOTVX    0xe800002b
++#define MASK_SMT_VDOTVX     0xfc00707f
++#define MATCH_SMT_VSDOTVX   0xe800102b
++#define MASK_SMT_VSDOTVX    0xfc00707f
++#define MATCH_SMT_VDOTVV    0xe800402b
++#define MASK_SMT_VDOTVV     0xfc00707f
++#define MATCH_SMT_VSDOTVV   0xe800502b
++#define MASK_SMT_VSDOTVV    0xfc00707f
++
+ /* Zcmop instructions.  */
+ #define MATCH_C_MOP_1 0x6081
+ #define MASK_C_MOP_1 0xffff
+@@ -4254,6 +4393,38 @@
+ #define CSR_VL 0xc20
+ #define CSR_VTYPE 0xc21
+ #define CSR_VLENB 0xc22
++/* Spacemit CSR address.  */
++#define CSR_MSETUP 0x7c0
++#define CSR_MCPM 0x7c1
++#define CSR_MRAOP 0x7c2
++#define CSR_MSWITCH 0x7c3
++#define CSR_MBUSERR 0x7cc
++#define CSR_ML2SETUP 0x7f0
++#define CSR_ML2BUSERR 0x7f1
++#define CSR_MPCFIFO 0xfd0
++#define CSR_MDBGINFO1 0xfd1
++#define CSR_MDBGINFO2 0xfd2
++#define CSR_MDBGINFO3 0xfd3
++#define CSR_SL2PID 0x5f0
++#define CSR_SL2PART 0x5f1
++#define CSR_PMACFG0 0x7de
++#define CSR_PMACFG2 0x7df
++#define CSR_PMAADDR0  0x7e0
++#define CSR_PMAADDR1  0x7e1
++#define CSR_PMAADDR2  0x7e2
++#define CSR_PMAADDR3  0x7e3
++#define CSR_PMAADDR4  0x7e4
++#define CSR_PMAADDR5  0x7e5
++#define CSR_PMAADDR6  0x7e6
++#define CSR_PMAADDR7  0x7e7
++#define CSR_PMAADDR8  0x7e8
++#define CSR_PMAADDR9  0x7e9
++#define CSR_PMAADDR10 0x7ea
++#define CSR_PMAADDR11 0x7eb
++#define CSR_PMAADDR12 0x7ec
++#define CSR_PMAADDR13 0x7ed
++#define CSR_PMAADDR14 0x7ee
++#define CSR_PMAADDR15 0x7ef
+ #endif /* RISCV_ENCODING_H */
+ #ifdef DECLARE_INSN
+ DECLARE_INSN(slli_rv32, MATCH_SLLI_RV32, MASK_SLLI_RV32)
+@@ -5393,6 +5564,38 @@ DECLARE_CSR(vcsr, CSR_VCSR, CSR_CLASS_V,
+ DECLARE_CSR(vl, CSR_VL, CSR_CLASS_V, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
+ DECLARE_CSR(vtype, CSR_VTYPE, CSR_CLASS_V, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
+ DECLARE_CSR(vlenb, CSR_VLENB, CSR_CLASS_V, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++/* Spacemit CSRs */
++DECLARE_CSR(msetup, CSR_MSETUP, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mcpm, CSR_MCPM, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mraop, CSR_MRAOP, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mswitch, CSR_MSWITCH, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mbuserr, CSR_MBUSERR, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(ml2setup, CSR_ML2SETUP, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(ml2buserr, CSR_ML2BUSERR, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mpcfifo, CSR_MPCFIFO, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mdbginfo1, CSR_MDBGINFO1, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mdbginfo2, CSR_MDBGINFO2, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(mdbginfo3, CSR_MDBGINFO3, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(sl2pid, CSR_SL2PID, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(sl2part, CSR_SL2PART, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmacfg0, CSR_PMACFG0, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmacfg2, CSR_PMACFG2, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr0,  CSR_PMAADDR0,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr1,  CSR_PMAADDR1,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr2,  CSR_PMAADDR2,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr3,  CSR_PMAADDR3,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr4,  CSR_PMAADDR4,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr5,  CSR_PMAADDR5,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr6,  CSR_PMAADDR6,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr7,  CSR_PMAADDR7,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr8,  CSR_PMAADDR8,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr9,  CSR_PMAADDR9,  CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr10, CSR_PMAADDR10, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr11, CSR_PMAADDR11, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr12, CSR_PMAADDR12, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr13, CSR_PMAADDR13, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr14, CSR_PMAADDR14, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
++DECLARE_CSR(pmaaddr15, CSR_PMAADDR15, CSR_CLASS_SPACEMIT, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
+ #endif /* DECLARE_CSR */
+ #ifdef DECLARE_CSR_ALIAS
+ DECLARE_CSR_ALIAS(dscratch, CSR_DSCRATCH0, CSR_CLASS_DEBUG, PRIV_SPEC_CLASS_NONE, PRIV_SPEC_CLASS_NONE)
+Index: binutils-2.44/include/opcode/riscv.h
+===================================================================
+--- binutils-2.44.orig/include/opcode/riscv.h
++++ binutils-2.44/include/opcode/riscv.h
+@@ -103,6 +103,12 @@ static inline unsigned int riscv_insn_le
+   (RV_X(x, 15, 5))
+ #define EXTRACT_RVV_VI_UIMM6(x) \
+   (RV_X(x, 15, 5) | (RV_X(x, 26, 1) << 5))
++#define EXTRACT_SPACEMIT_IME_UIMM3(x) \
++  (RV_X(x, 12, 3))
++#define EXTRACT_SPACEMIT_IME_UIMM2(x) \
++  (RV_X(x, 12, 2))
++#define EXTRACT_SPACEMIT_IME_UIMM2_SP(x) \
++  ((RV_X(x, 7, 1) << 0) | (RV_X(x, 15, 1) << 1))
+ #define EXTRACT_RVV_OFFSET(x) \
+   (RV_X(x, 29, 3))
+ #define EXTRACT_RVV_VB_IMM(x) \
+@@ -177,6 +183,12 @@ static inline unsigned int riscv_insn_le
+   (RV_X(x, 0, 10) << 20)
+ #define ENCODE_RVV_VC_IMM(x) \
+   (RV_X(x, 0, 11) << 20)
++#define ENCODE_SPACEMIT_IME_UIMM3(x) \
++  (RV_X(x, 0, 3) << 12)
++#define ENCODE_SPACEMIT_IME_UIMM2(x) \
++  (RV_X(x, 0, 2) << 12)
++#define ENCODE_SPACEMIT_IME_UIMM2_SP(x) \
++  ((RV_X(x, 0, 1) << 7) | (RV_X(x, 1, 1) << 15))
+ #define ENCODE_RVV_VI_UIMM6(x) \
+   (RV_X(x, 0, 5) << 15 | RV_X(x, 5, 1) << 26)
+ #define ENCODE_ZCB_BYTE_UIMM(x) \
+@@ -365,6 +377,20 @@ static inline unsigned int riscv_insn_le
+ #define OP_MASK_XTHEADVTYPE_RES	0xf
+ #define OP_SH_XTHEADVTYPE_RES	7
+ 
++/* jdsk extension */
++#define OP_MASK_VD_2   0xf
++#define OP_SH_VD_2     8
++#define OP_MASK_VD_4   0x7
++#define OP_SH_VD_4     9
++#define OP_MASK_VS1_2   0xf
++#define OP_SH_VS1_2        16
++#define OP_MASK_SPACEMIT_IME_WI		0x3
++#define OP_SH_SPACEMIT_IME_WI		29
++#define OP_MASK_SPACEMIT_IME_WF		0x3
++#define OP_SH_SPACEMIT_IME_WF		29
++#define OP_MASK_SPACEMIT_IME_VMASK	0x1
++#define OP_SH_SPACEMIT_IME_VMASK	25
++
+ /* Zc fields.  */
+ #define OP_MASK_REG_LIST	0xf
+ #define OP_SH_REG_LIST		4
+@@ -540,6 +566,8 @@ enum riscv_insn_class
+   INSN_CLASS_XCVELW,
+   INSN_CLASS_XCVMAC,
+   INSN_CLASS_XCVMEM,
++  INSN_CLASS_XSMTVDOT,
++  INSN_CLASS_XSMTVDOTII,
+   INSN_CLASS_XCVSIMD,
+   INSN_CLASS_XTHEADBA,
+   INSN_CLASS_XTHEADBB,
+@@ -665,6 +693,8 @@ enum riscv_seg_mstate
+ 
+ #define NRC (4 + 1)     /* Max characters in register names, incl nul.  */
+ 
++extern const char riscv_spacemit_ime_wf_names_numeric[3][NRC];
++extern const char riscv_spacemit_ime_wi_names_numeric[4][NRC];
+ extern const char riscv_gpr_names_numeric[NGPR][NRC];
+ extern const char riscv_gpr_names_abi[NGPR][NRC];
+ extern const char riscv_fpr_names_numeric[NFPR][NRC];
+@@ -681,6 +711,8 @@ extern const char * const riscv_th_vlen[
+ extern const char * const riscv_th_vediv[4];
+ extern const char * const riscv_fli_symval[32];
+ extern const float riscv_fli_numval[32];
++extern const char * const riscv_spacemit_ime_wi_names_numeric_1[4];
++extern const char * const riscv_spacemit_ime_wi_names_numeric_2[4];
+ 
+ extern const struct riscv_opcode riscv_opcodes[];
+ extern const struct riscv_opcode riscv_insn_types[];
+Index: binutils-2.44/opcodes/riscv-dis.c
+===================================================================
+--- binutils-2.44.orig/opcodes/riscv-dis.c
++++ binutils-2.44/opcodes/riscv-dis.c
+@@ -426,6 +426,22 @@ print_insn_args (const char *oparg, insn
+ 	      print (info->stream, dis_style_register, "%s",
+ 		     riscv_vecr_names_numeric[EXTRACT_OPERAND (VD, l)]);
+ 	      break;
++	    case 'x':
++	      print (info->stream, dis_style_register,  "%s",
++		     riscv_vecr_names_numeric[EXTRACT_OPERAND (VD_2, l) * 2]);
++	      break;
++	    case 'y':
++	      print (info->stream, dis_style_register,  "%s",
++		     riscv_vecr_names_numeric[EXTRACT_OPERAND (VD_4, l) * 4]);
++	      break;
++	    case 'q':
++	      print (info->stream, dis_style_register,  "%s",
++		     riscv_vecr_names_numeric[EXTRACT_OPERAND (VS1_2, l) * 2]);
++	      break;
++	    case 'g':
++	      print (info->stream, dis_style_register,  "%s",
++		     riscv_vecr_names_numeric[EXTRACT_OPERAND (SPACEMIT_IME_VMASK, l)]);
++	      break;
+ 	    case 'e':
+ 	      if (!EXTRACT_OPERAND (VWD, l))
+ 		print (info->stream, dis_style_register, "%s",
+@@ -588,6 +604,32 @@ print_insn_args (const char *oparg, insn
+ 	  print (info->stream, dis_style_register, "%s", riscv_gpr_names[rd]);
+ 	  break;
+ 
++	case 'g':
++	  print (info->stream, dis_style_register, "%s",
++		 riscv_spacemit_ime_wf_names_numeric[EXTRACT_OPERAND (SPACEMIT_IME_WF, l)]);
++	  break;
++	case '7':
++	case 'e':
++	case 'G':
++	case 'J':
++	case 'w':
++	  print (info->stream, dis_style_register, "%s",
++		 riscv_spacemit_ime_wi_names_numeric[EXTRACT_OPERAND (SPACEMIT_IME_WI, l)]);
++	  break;
++	case 'K':
++	case '9':
++	  print (info->stream, dis_style_immediate, "%d",
++		 (int)EXTRACT_SPACEMIT_IME_UIMM2_SP (l));
++	  break;
++	case 'H':
++	  print (info->stream, dis_style_immediate, "%d",
++		 (int)EXTRACT_SPACEMIT_IME_UIMM3 (l));
++	  break;
++	case 'h':
++	  print (info->stream, dis_style_immediate, "%d",
++		 (int)EXTRACT_SPACEMIT_IME_UIMM2 (l));
++	  break;
++
+ 	case 'y':
+ 	  print (info->stream, dis_style_immediate, "0x%x",
+ 		 EXTRACT_OPERAND (BS, l));
+Index: binutils-2.44/opcodes/riscv-opc.c
+===================================================================
+--- binutils-2.44.orig/opcodes/riscv-opc.c
++++ binutils-2.44/opcodes/riscv-opc.c
+@@ -26,6 +26,16 @@
+ 
+ /* Register names used by gas and objdump.  */
+ 
++const char riscv_spacemit_ime_wf_names_numeric[3][NRC] =
++{
++  "fp16",   "fp4",   "fp8"
++};
++
++const char riscv_spacemit_ime_wi_names_numeric[4][NRC] =
++{
++  "i2",   "i16",   "i4",   "i8"
++};
++
+ const char riscv_gpr_names_numeric[NGPR][NRC] =
+ {
+   "x0",   "x1",   "x2",   "x3",   "x4",   "x5",   "x6",   "x7",
+@@ -143,6 +153,16 @@ const float riscv_fli_numval[32] =
+   0x1p+3, 0x1p+4, 0x1p+7, 0x1p+8, 0x1p+15, 0x1p+16, 0x0p+0, 0x0p+0
+ };
+ 
++const char * const riscv_spacemit_ime_wi_names_numeric_1[4] =
++{
++  NULL,  NULL,  "i4",  NULL,
++};
++
++const char * const riscv_spacemit_ime_wi_names_numeric_2[4] =
++{
++  "i2",  "i16",  NULL,  "i8",
++};
++
+ /* Get sp base adjustment.  */
+ 
+ unsigned int
+@@ -2295,6 +2315,135 @@ const struct riscv_opcode riscv_opcodes[
+ {"sfence.vma", 0, INSN_CLASS_I, "s,t", MATCH_SFENCE_VMA, MASK_SFENCE_VMA, match_opcode, 0 },
+ {"wfi",        0, INSN_CLASS_I, "",    MATCH_WFI, MASK_WFI, match_opcode, 0 },
+ 
++/* spacemit extension */
++/* SPACEMIT IME 2.0 (include 1.0) */
++/* Int Matrix Multi-Accumulation */
++{"smt.vmadot",   0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOT_I8,   MASK_SMT_VMADOT_I8,   match_opcode, INSN_ALIAS },
++{"smt.vmadot",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOT,      MASK_SMT_VMADOT,      match_opcode, INSN_ALIAS },
++{"vmadot",   0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOT_I8,   MASK_SMT_VMADOT_I8,   match_opcode, INSN_ALIAS },
++{"vmadot",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOT,      MASK_SMT_VMADOT,      match_opcode, 0 },
++{"smt.vmadotu",  0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOTU_I8,  MASK_SMT_VMADOTU_I8,  match_opcode, INSN_ALIAS },
++{"smt.vmadotu",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOTU,     MASK_SMT_VMADOTU,     match_opcode, INSN_ALIAS },
++{"vmadotu",  0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOTU_I8,  MASK_SMT_VMADOTU_I8,  match_opcode, INSN_ALIAS },
++{"vmadotu",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOTU,     MASK_SMT_VMADOTU,     match_opcode, 0 },
++{"smt.vmadotsu", 0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOTSU_I8, MASK_SMT_VMADOTSU_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadotsu", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOTSU,    MASK_SMT_VMADOTSU,    match_opcode, INSN_ALIAS },
++{"vmadotsu", 0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOTSU_I8, MASK_SMT_VMADOTSU_I8, match_opcode, INSN_ALIAS },
++{"vmadotsu", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOTSU,    MASK_SMT_VMADOTSU,    match_opcode, 0 },
++{"smt.vmadotus", 0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOTUS_I8, MASK_SMT_VMADOTUS_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadotus", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOTUS,    MASK_SMT_VMADOTUS,    match_opcode, INSN_ALIAS },
++{"vmadotus", 0, INSN_CLASS_XSMTVDOT, "Vx,Vs,Vt",   MATCH_SMT_VMADOTUS_I8, MASK_SMT_VMADOTUS_I8, match_opcode, INSN_ALIAS },
++{"vmadotus", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,G", MATCH_SMT_VMADOTUS,    MASK_SMT_VMADOTUS,    match_opcode, 0 },
++/* Int Sliding Window Multi-Accumulation */
++/* Sliding Value = 1 */
++{"smt.vmadot1u",  0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1U_I8,  MASK_SMT_VMADOT1U_I8,  match_opcode, INSN_ALIAS },
++{"smt.vmadot1u",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1U,     MASK_SMT_VMADOT1U,     match_opcode, INSN_ALIAS },
++{"vmadot1u",  0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1U_I8,  MASK_SMT_VMADOT1U_I8,  match_opcode, INSN_ALIAS },
++{"vmadot1u",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1U,     MASK_SMT_VMADOT1U,     match_opcode, 0 },
++{"smt.vmadot1",   0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1_I8,   MASK_SMT_VMADOT1_I8,   match_opcode, INSN_ALIAS },
++{"smt.vmadot1",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1,      MASK_SMT_VMADOT1,      match_opcode, INSN_ALIAS },
++{"vmadot1",   0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1_I8,   MASK_SMT_VMADOT1_I8,   match_opcode, INSN_ALIAS },
++{"vmadot1",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1,      MASK_SMT_VMADOT1,      match_opcode, 0 },
++{"smt.vmadot1su", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1SU_I8, MASK_SMT_VMADOT1SU_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadot1su", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1SU,    MASK_SMT_VMADOT1SU,    match_opcode, INSN_ALIAS },
++{"vmadot1su", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1SU_I8, MASK_SMT_VMADOT1SU_I8, match_opcode, INSN_ALIAS },
++{"vmadot1su", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1SU,    MASK_SMT_VMADOT1SU,    match_opcode, 0 },
++{"smt.vmadot1us", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1US_I8, MASK_SMT_VMADOT1US_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadot1us", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1US,    MASK_SMT_VMADOT1US,    match_opcode, INSN_ALIAS },
++{"vmadot1us", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT1US_I8, MASK_SMT_VMADOT1US_I8, match_opcode, INSN_ALIAS },
++{"vmadot1us", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT1US,    MASK_SMT_VMADOT1US,    match_opcode, 0 },
++/* Sliding Value = 2 */
++{"smt.vmadot2u",  0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2U_I8,  MASK_SMT_VMADOT2U_I8,  match_opcode, INSN_ALIAS },
++{"smt.vmadot2u",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2U,     MASK_SMT_VMADOT2U,     match_opcode, INSN_ALIAS },
++{"vmadot2u",  0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2U_I8,  MASK_SMT_VMADOT2U_I8,  match_opcode, INSN_ALIAS },
++{"vmadot2u",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2U,     MASK_SMT_VMADOT2U,     match_opcode, 0 },
++{"smt.vmadot2",   0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2_I8,   MASK_SMT_VMADOT2_I8,   match_opcode, INSN_ALIAS },
++{"smt.vmadot2",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2,      MASK_SMT_VMADOT2,      match_opcode, INSN_ALIAS },
++{"vmadot2",   0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2_I8,   MASK_SMT_VMADOT2_I8,   match_opcode, INSN_ALIAS },
++{"vmadot2",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2,      MASK_SMT_VMADOT2,      match_opcode, 0 },
++{"smt.vmadot2su", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2SU_I8, MASK_SMT_VMADOT2SU_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadot2su", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2SU,    MASK_SMT_VMADOT2SU,    match_opcode, INSN_ALIAS },
++{"vmadot2su", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2SU_I8, MASK_SMT_VMADOT2SU_I8, match_opcode, INSN_ALIAS },
++{"vmadot2su", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2SU,    MASK_SMT_VMADOT2SU,    match_opcode, 0 },
++{"smt.vmadot2us", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2US_I8, MASK_SMT_VMADOT2US_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadot2us", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2US,    MASK_SMT_VMADOT2US,    match_opcode, INSN_ALIAS },
++{"vmadot2us", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT2US_I8, MASK_SMT_VMADOT2US_I8, match_opcode, INSN_ALIAS },
++{"vmadot2us", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT2US,    MASK_SMT_VMADOT2US,    match_opcode, 0 },
++/* Sliding Value = 3 */
++{"smt.vmadot3u",  0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3U_I8,  MASK_SMT_VMADOT3U_I8,  match_opcode, INSN_ALIAS },
++{"smt.vmadot3u",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3U,     MASK_SMT_VMADOT3U,     match_opcode, INSN_ALIAS },
++{"vmadot3u",  0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3U_I8,  MASK_SMT_VMADOT3U_I8,  match_opcode, INSN_ALIAS },
++{"vmadot3u",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3U,     MASK_SMT_VMADOT3U,     match_opcode, 0 },
++{"smt.vmadot3",   0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3_I8,   MASK_SMT_VMADOT3_I8,   match_opcode, INSN_ALIAS },
++{"smt.vmadot3",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3,      MASK_SMT_VMADOT3,      match_opcode, INSN_ALIAS },
++{"vmadot3",   0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3_I8,   MASK_SMT_VMADOT3_I8,   match_opcode, INSN_ALIAS },
++{"vmadot3",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3,      MASK_SMT_VMADOT3,      match_opcode, 0 },
++{"smt.vmadot3su", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3SU_I8, MASK_SMT_VMADOT3SU_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadot3su", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3SU,    MASK_SMT_VMADOT3SU,    match_opcode, INSN_ALIAS },
++{"vmadot3su", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3SU_I8, MASK_SMT_VMADOT3SU_I8, match_opcode, INSN_ALIAS },
++{"vmadot3su", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3SU,    MASK_SMT_VMADOT3SU,    match_opcode, 0 },
++{"smt.vmadot3us", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3US_I8, MASK_SMT_VMADOT3US_I8, match_opcode, INSN_ALIAS },
++{"smt.vmadot3us", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3US,    MASK_SMT_VMADOT3US,    match_opcode, INSN_ALIAS },
++{"vmadot3us", 0, INSN_CLASS_XSMTVDOT, "Vx,Vq,Vt",   MATCH_SMT_VMADOT3US_I8, MASK_SMT_VMADOT3US_I8, match_opcode, INSN_ALIAS },
++{"vmadot3us", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,w", MATCH_SMT_VMADOT3US,    MASK_SMT_VMADOT3US,    match_opcode, 0 },
++/* Int Sparse Matrix Multi-Accumulation */
++{"smt.vmadotu.sp",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOTU_SP,  MASK_SMT_VMADOTU_SP,  match_opcode, INSN_ALIAS },
++{"smt.vmadotu.sp",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOTU_SP,  MASK_SMT_VMADOTU_SP,  match_opcode, INSN_ALIAS },
++{"vmadotu.sp",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOTU_SP,  MASK_SMT_VMADOTU_SP,  match_opcode, INSN_ALIAS },
++{"vmadotu.sp",  0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOTU_SP,  MASK_SMT_VMADOTU_SP,  match_opcode, 0 },
++{"smt.vmadot.sp",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOT_SP,   MASK_SMT_VMADOT_SP,   match_opcode, INSN_ALIAS },
++{"smt.vmadot.sp",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOT_SP,   MASK_SMT_VMADOT_SP,   match_opcode, INSN_ALIAS },
++{"vmadot.sp",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOT_SP,   MASK_SMT_VMADOT_SP,   match_opcode, INSN_ALIAS },
++{"vmadot.sp",   0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOT_SP,   MASK_SMT_VMADOT_SP,   match_opcode, 0 },
++{"smt.vmadotsu.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOTSU_SP, MASK_SMT_VMADOTSU_SP, match_opcode, INSN_ALIAS },
++{"smt.vmadotsu.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOTSU_SP, MASK_SMT_VMADOTSU_SP, match_opcode, INSN_ALIAS },
++{"vmadotsu.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOTSU_SP, MASK_SMT_VMADOTSU_SP, match_opcode, INSN_ALIAS },
++{"vmadotsu.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOTSU_SP, MASK_SMT_VMADOTSU_SP, match_opcode, 0 },
++{"smt.vmadotus.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOTUS_SP, MASK_SMT_VMADOTUS_SP, match_opcode, INSN_ALIAS },
++{"smt.vmadotus.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOTUS_SP, MASK_SMT_VMADOTUS_SP, match_opcode, INSN_ALIAS },
++{"vmadotus.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,K,e", MATCH_SMT_VMADOTUS_SP, MASK_SMT_VMADOTUS_SP, match_opcode, INSN_ALIAS },
++{"vmadotus.sp", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,Vg,9,7", MATCH_SMT_VMADOTUS_SP, MASK_SMT_VMADOTUS_SP, match_opcode, 0 },
++/* Shaping High-Precision Matrix Multiplication Accumulation */
++{"smt.vmadotu.hp",  0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOTU_HP,  MASK_SMT_VMADOTU_HP,  match_opcode, INSN_ALIAS },
++{"vmadotu.hp",  0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOTU_HP,  MASK_SMT_VMADOTU_HP,  match_opcode, 0 },
++{"smt.vmadot.hp",   0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOT_HP,   MASK_SMT_VMADOT_HP,   match_opcode, INSN_ALIAS },
++{"vmadot.hp",   0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOT_HP,   MASK_SMT_VMADOT_HP,   match_opcode, 0 },
++{"smt.vmadotsu.hp", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOTSU_HP, MASK_SMT_VMADOTSU_HP, match_opcode, INSN_ALIAS },
++{"vmadotsu.hp", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOTSU_HP, MASK_SMT_VMADOTSU_HP, match_opcode, 0 },
++{"smt.vmadotus.hp", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOTUS_HP, MASK_SMT_VMADOTUS_HP, match_opcode, INSN_ALIAS },
++{"vmadotus.hp", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,Vg,H,J", MATCH_SMT_VMADOTUS_HP, MASK_SMT_VMADOTUS_HP, match_opcode, 0 },
++/* Floating-Point Expansion Matrix Multi-Accumulation */
++{"smt.vfwmadot", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt", MATCH_SMT_VFWMADOT_FP16, MASK_SMT_VFWMADOT_FP16, match_opcode, INSN_ALIAS },
++{"smt.vfwmadot", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,g", MATCH_SMT_VFWMADOT, MASK_SMT_VFWMADOT, match_opcode, INSN_ALIAS },
++{"vfwmadot", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt", MATCH_SMT_VFWMADOT_FP16, MASK_SMT_VFWMADOT_FP16, match_opcode, INSN_ALIAS },
++{"vfwmadot", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,g", MATCH_SMT_VFWMADOT, MASK_SMT_VFWMADOT, match_opcode, 0 },
++/* Floating-Point Sliding Window Expansion Multi-Accumulation */
++{"smt.vfwmadot1", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt", MATCH_SMT_VFWMADOT1_FP16, MASK_SMT_VFWMADOT1_FP16, match_opcode, INSN_ALIAS },
++{"smt.vfwmadot1", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,g", MATCH_SMT_VFWMADOT1, MASK_SMT_VFWMADOT1, match_opcode, INSN_ALIAS },
++{"vfwmadot1", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt", MATCH_SMT_VFWMADOT1_FP16, MASK_SMT_VFWMADOT1_FP16, match_opcode, INSN_ALIAS },
++{"vfwmadot1", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,g", MATCH_SMT_VFWMADOT1, MASK_SMT_VFWMADOT1, match_opcode, 0 },
++{"smt.vfwmadot2", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt", MATCH_SMT_VFWMADOT2_FP16, MASK_SMT_VFWMADOT2_FP16, match_opcode, INSN_ALIAS },
++{"smt.vfwmadot2", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,g", MATCH_SMT_VFWMADOT2, MASK_SMT_VFWMADOT2, match_opcode, INSN_ALIAS },
++{"vfwmadot2", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt", MATCH_SMT_VFWMADOT2_FP16, MASK_SMT_VFWMADOT2_FP16, match_opcode, INSN_ALIAS },
++{"vfwmadot2", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,g", MATCH_SMT_VFWMADOT2, MASK_SMT_VFWMADOT2, match_opcode, 0 },
++{"smt.vfwmadot3", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt", MATCH_SMT_VFWMADOT3_FP16, MASK_SMT_VFWMADOT3_FP16, match_opcode, INSN_ALIAS },
++{"smt.vfwmadot3", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,g", MATCH_SMT_VFWMADOT3, MASK_SMT_VFWMADOT3, match_opcode, INSN_ALIAS },
++{"vfwmadot3", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt", MATCH_SMT_VFWMADOT3_FP16, MASK_SMT_VFWMADOT3_FP16, match_opcode, INSN_ALIAS },
++{"vfwmadot3", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vq,Vt,g", MATCH_SMT_VFWMADOT3, MASK_SMT_VFWMADOT3, match_opcode, 0 },
++/* Element Indentation Assembly */
++{"smt.vnpack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNPACK_VV, MASK_SMT_VNPACK_VV, match_opcode, INSN_ALIAS },
++{"vnpack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNPACK_VV, MASK_SMT_VNPACK_VV, match_opcode, 0 },
++{"smt.vnspack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNSPACK_VV, MASK_SMT_VNSPACK_VV, match_opcode, INSN_ALIAS },
++{"vnspack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNSPACK_VV, MASK_SMT_VNSPACK_VV, match_opcode, 0 },
++{"smt.vnpack4.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNPACK4_VV, MASK_SMT_VNPACK4_VV, match_opcode, INSN_ALIAS },
++{"vnpack4.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNPACK4_VV, MASK_SMT_VNPACK4_VV, match_opcode, 0 },
++{"smt.vnspack4.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNSPACK4_VV, MASK_SMT_VNSPACK4_VV, match_opcode, INSN_ALIAS },
++{"vnspack4.vv", 0, INSN_CLASS_XSMTVDOTII, "Vd,Vs,Vt,h", MATCH_SMT_VNSPACK4_VV, MASK_SMT_VNSPACK4_VV, match_opcode, 0 },
++{"smt.vpack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,h", MATCH_SMT_VPACK_VV, MASK_SMT_VPACK_VV, match_opcode, INSN_ALIAS },
++{"vpack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,h", MATCH_SMT_VPACK_VV, MASK_SMT_VPACK_VV, match_opcode, 0 },
++{"smt.vupack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,h", MATCH_SMT_VUPACK_VV, MASK_SMT_VUPACK_VV, match_opcode, INSN_ALIAS },
++{"vupack.vv", 0, INSN_CLASS_XSMTVDOTII, "Vx,Vs,Vt,h", MATCH_SMT_VUPACK_VV, MASK_SMT_VUPACK_VV, match_opcode, 0 },
++
+ /* Smctr/Ssctr instruction.  */
+ {"sctrclr", 0, INSN_CLASS_SMCTR_OR_SSCTR, "", MATCH_SCTRCLR, MASK_SCTRCLR, match_opcode, 0 },
+ 

@@ -1,0 +1,129 @@
+From 41054b26c3f382751ef56ba85a614e3f6d258ff0 Mon Sep 17 00:00:00 2001
+From: Mark Zhuang <mark.zhuang@spacemit.com>
+Date: Tue, 14 Apr 2026 10:07:32 +0800
+Subject: [PATCH] gcc: tune stringop_strategy for spacemit
+
+---
+ gcc/config/riscv/riscv.cc | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/src/gcc/config/riscv/riscv.cc b/src/gcc/config/riscv/riscv.cc
+index b35e426a6be..ccd7329b94c 100644
+--- a/src/gcc/config/riscv/riscv.cc
++++ b/src/gcc/config/riscv/riscv.cc
+@@ -304,6 +304,7 @@ struct riscv_tune_param
+   const char *function_align;
+   const char *jump_align;
+   const char *loop_align;
++  stringop_strategy_enum strop_strategy;
+ };
+ 
+ 
+@@ -469,6 +470,7 @@ static const struct riscv_tune_param rocket_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,				/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for Sifive 7 Series.  */
+@@ -491,6 +493,7 @@ static const struct riscv_tune_param sifive_7_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,				/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for Sifive p400 Series.  */
+@@ -513,6 +516,7 @@ static const struct riscv_tune_param sifive_p400_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,				/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for Sifive p600 Series.  */
+@@ -535,6 +539,7 @@ static const struct riscv_tune_param sifive_p600_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,			/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for T-HEAD c906.  */
+@@ -557,6 +562,7 @@ static const struct riscv_tune_param thead_c906_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,			/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for xiangshan nanhu.  */
+@@ -579,6 +585,7 @@ static const struct riscv_tune_param xiangshan_nanhu_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,			/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for a generic ooo profile.  */
+@@ -601,6 +608,7 @@ static const struct riscv_tune_param generic_ooo_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,			/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for Tenstorrent Ascalon 8 wide.  */
+@@ -623,6 +631,7 @@ static const struct riscv_tune_param tt_ascalon_d8_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_AUTO,				/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for Spacemit a100.  */
+@@ -647,6 +656,7 @@ static const struct riscv_tune_param spacemit_a100_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_SCALAR,				/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for Spacemit x60.  */
+@@ -673,6 +683,7 @@ static const struct riscv_tune_param spacemit_x60_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_SCALAR,				/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for Spacemit x100.  */
+@@ -695,6 +706,7 @@ static const struct riscv_tune_param spacemit_x100_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_SCALAR,				/* strop_strategy */
+ };
+ 
+ /* Costs to use when optimizing for size.  */
+@@ -717,6 +729,7 @@ static const struct riscv_tune_param optimize_size_tune_info = {
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+   NULL,						/* loop_align */
++  STRATEGY_LIBCALL,				/* strop_strategy */
+ };
+ 
+ static bool riscv_avoid_shrink_wrapping_separate ();
+@@ -10909,6 +10922,8 @@ riscv_override_options_internal (struct gcc_options *opts)
+       if (opts->x_flag_align_functions && !opts->x_str_align_functions)
+ 	opts->x_str_align_functions = tune_param->function_align;
+     }
++  if (!OPTION_SET_P (stringop_strategy))
++    opts->x_stringop_strategy = tune_param->strop_strategy;
+ 
+   /* Use -mtune's setting for slow_unaligned_access, even when optimizing
+      for size.  For architectures that trap and emulate unaligned accesses,
+-- 
+2.34.1
+

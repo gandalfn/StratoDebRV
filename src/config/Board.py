@@ -23,7 +23,7 @@ from src.common.Log import Log
 from src.strata.Stratum import Stratum
 
 class Board:
-    def __init__(self, root: str, board: str):
+    def __init__(self, root: str, board: str, debian: str):
 
         self.__log = Log("Board")
 
@@ -31,6 +31,7 @@ class Board:
         
         self.__root = root
         self.__board = board
+        self.__debian = debian
 
         self.__log.info(f"Loading toolchain configuration for {self.__board}...")
 
@@ -109,6 +110,10 @@ class Board:
     @property
     def version(self):
         return self.__version
+    
+    @property
+    def debian(self):
+        return self.__debian
     
     @property
     def strata(self):

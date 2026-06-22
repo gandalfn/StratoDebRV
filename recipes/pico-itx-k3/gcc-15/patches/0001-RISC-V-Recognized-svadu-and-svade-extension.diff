@@ -1,0 +1,112 @@
+From b2f912f89358f74120c936b7a54b41689f8a0ad7 Mon Sep 17 00:00:00 2001
+From: Mingzhu Yan <yanmingzhu@iscas.ac.cn>
+Date: Tue, 6 May 2025 16:59:09 -0600
+Subject: [PATCH 1/8] RISC-V: Recognized svadu and svade extension
+
+This patch support svadu and svade extension.
+To enable GCC to recognize and process svadu and svade extension correctly at compile time.
+
+gcc/ChangeLog:
+
+	* common/config/riscv/riscv-common.cc (riscv_ext_version_table): New
+	extension.
+	(riscv_ext_flag_table) Ditto.
+	* config/riscv/riscv.opt: New mask.
+
+	* doc/invoke.texi (RISC-V Options): New extension
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/riscv/arch-45.c: New test.
+	* gcc.target/riscv/arch-46.c: New test.
+---
+ src/gcc/common/config/riscv/riscv-common.cc  | 4 ++++
+ src/gcc/config/riscv/riscv.opt               | 4 ++++
+ src/gcc/doc/invoke.texi                      | 8 ++++++++
+ src/gcc/testsuite/gcc.target/riscv/arch-45.c | 5 +++++
+ src/gcc/testsuite/gcc.target/riscv/arch-46.c | 5 +++++
+ 5 files changed, 26 insertions(+)
+ create mode 100644 src/gcc/testsuite/gcc.target/riscv/arch-45.c
+ create mode 100644 src/gcc/testsuite/gcc.target/riscv/arch-46.c
+
+diff --git a/src/gcc/common/config/riscv/riscv-common.cc b/src/gcc/common/config/riscv/riscv-common.cc
+index c5b15aff3..89c9ef775 100644
+--- a/src/gcc/common/config/riscv/riscv-common.cc
++++ b/src/gcc/common/config/riscv/riscv-common.cc
+@@ -419,6 +419,8 @@ static const struct riscv_ext_version riscv_ext_version_table[] =
+   {"sspm",      ISA_SPEC_CLASS_NONE, 1, 0},
+   {"supm",      ISA_SPEC_CLASS_NONE, 1, 0},
+ 
++  {"svade",   ISA_SPEC_CLASS_NONE, 1, 0},
++  {"svadu",   ISA_SPEC_CLASS_NONE, 1, 0},
+   {"svinval", ISA_SPEC_CLASS_NONE, 1, 0},
+   {"svnapot", ISA_SPEC_CLASS_NONE, 1, 0},
+   {"svpbmt",  ISA_SPEC_CLASS_NONE, 1, 0},
+@@ -1762,6 +1764,8 @@ static const riscv_ext_flag_table_t riscv_ext_flag_table[] =
+   RISCV_EXT_FLAG_ENTRY ("zcmp", x_riscv_zc_subext, MASK_ZCMP),
+   RISCV_EXT_FLAG_ENTRY ("zcmt", x_riscv_zc_subext, MASK_ZCMT),
+ 
++  RISCV_EXT_FLAG_ENTRY ("svade",   x_riscv_sv_subext, MASK_SVADE),
++  RISCV_EXT_FLAG_ENTRY ("svadu",   x_riscv_sv_subext, MASK_SVADU),
+   RISCV_EXT_FLAG_ENTRY ("svinval", x_riscv_sv_subext, MASK_SVINVAL),
+   RISCV_EXT_FLAG_ENTRY ("svnapot", x_riscv_sv_subext, MASK_SVNAPOT),
+   RISCV_EXT_FLAG_ENTRY ("svvptc", x_riscv_sv_subext, MASK_SVVPTC),
+diff --git a/src/gcc/config/riscv/riscv.opt b/src/gcc/config/riscv/riscv.opt
+index cec866350..663e31903 100644
+--- a/src/gcc/config/riscv/riscv.opt
++++ b/src/gcc/config/riscv/riscv.opt
+@@ -466,6 +466,10 @@ Mask(XCVBI) Var(riscv_xcv_subext)
+ TargetVariable
+ int riscv_sv_subext
+ 
++Mask(SVADE) Var(riscv_sv_subext)
++
++Mask(SVADU) Var(riscv_sv_subext)
++
+ Mask(SVINVAL) Var(riscv_sv_subext)
+ 
+ Mask(SVNAPOT) Var(riscv_sv_subext)
+diff --git a/src/gcc/doc/invoke.texi b/src/gcc/doc/invoke.texi
+index 1e67b7fc5..3f5ff23ec 100644
+--- a/src/gcc/doc/invoke.texi
++++ b/src/gcc/doc/invoke.texi
+@@ -31565,6 +31565,14 @@ to @samp{zvks} and @samp{zvkg}.
+ @tab 1.0
+ @tab Supervisor-mode timer interrupts extension.
+ 
++@item svade
++@tab 1.0
++@tab Cause exception when hardware updating of A/D bits is disabled
++
++@item svadu
++@tab 1.0
++@tab Hardware Updating of A/D Bits extension.
++
+ @item svinval
+ @tab 1.0
+ @tab Fine-grained address-translation cache invalidation extension.
+diff --git a/src/gcc/testsuite/gcc.target/riscv/arch-45.c b/src/gcc/testsuite/gcc.target/riscv/arch-45.c
+new file mode 100644
+index 000000000..afffb9955
+--- /dev/null
++++ b/src/gcc/testsuite/gcc.target/riscv/arch-45.c
+@@ -0,0 +1,5 @@
++/* { dg-do compile } */
++/* { dg-options "-march=rv64gc_svadu -mabi=lp64" } */
++int foo()
++{
++}
+diff --git a/src/gcc/testsuite/gcc.target/riscv/arch-46.c b/src/gcc/testsuite/gcc.target/riscv/arch-46.c
+new file mode 100644
+index 000000000..2a062172e
+--- /dev/null
++++ b/src/gcc/testsuite/gcc.target/riscv/arch-46.c
+@@ -0,0 +1,5 @@
++/* { dg-do compile } */
++/* { dg-options "-march=rv64gc_svade -mabi=lp64" } */
++int foo()
++{
++}
+-- 
+2.34.1
+

@@ -46,14 +46,12 @@ class Recipe:
             self.__config = json.load(f)
 
         self.__name = self.__config['name']
-        self.__url = self.__config['url']
-        self.__rev = self.__config['rev']
-
+        self.__url = self.__config.get('url', None)
+        self.__rev = self.__config.get('rev', None)
+        
         self.__files = self.__config.get('files', {})
         self.__install = self.__config.get('install', {})
 
-        if not self.__url or not self.__rev:
-            raise Exception(f"Missing configuration (url/rev) in JSON for recipe : {self.__name}")
         
     @property
     def name(self):
@@ -98,6 +96,9 @@ class Recipe:
         self.__stamps.done(f"{self.__log.context}", step)
         
     def fetch(self) -> bool:
+        if not self.__url or not self.__rev:
+            raise Exception(f"Missing configuration (url/rev) in JSON for recipe : {self.__name}")
+
         if not self.__stamps.isDone(f"{self.__log.context}", Step.FETCH):
             if not self.__git.sync(self.__url, self.__sourcePath, self.__rev, depth=1):
                 self.__log.error(f"Failed to fetch {self.__url} rev {self.__rev}")
@@ -138,6 +139,7 @@ class Recipe:
     def install(self, installPath: str) -> bool:
         if not self.__stamps.isDone(f"{self.__log.context}", Step.INSTALL):
             files = self.__install.get('files', {})
+            Fs.mkdir(installPath)
             for srcFile, dstFile in files.items():
                 src = srcFile.format(sourcePath=self.__sourcePath, buildPath=self.__buildPath, recipePath=self.__recipePath, rootPath=self.__root, outputPath=installPath)
                 dst = dstFile.format(sourcePath=self.__sourcePath, buildPath=self.__buildPath, recipePath=self.__recipePath, rootPath=self.__root, outputPath=installPath)

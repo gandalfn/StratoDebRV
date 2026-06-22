@@ -1,0 +1,257 @@
+From b26362d7c3b6c347d1010d29bac66ebdda571b95 Mon Sep 17 00:00:00 2001
+From: liangzhen <zhen.liang@spacemit.com>
+Date: Wed, 12 Nov 2025 16:27:05 +0800
+Subject: [PATCH 7/8] add spacemit mcpu test
+
+---
+ .../gcc.target/riscv/mcpu-spacemit-a100.c     | 82 ++++++++++++++++++
+ .../gcc.target/riscv/mcpu-spacemit-x100.c     | 83 +++++++++++++++++++
+ .../gcc.target/riscv/mcpu-spacemit-x60.c      | 57 +++++++++++++
+ 3 files changed, 222 insertions(+)
+ create mode 100644 src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-a100.c
+ create mode 100644 src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x100.c
+ create mode 100644 src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x60.c
+
+diff --git a/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-a100.c b/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-a100.c
+new file mode 100644
+index 000000000..42b016bf8
+--- /dev/null
++++ b/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-a100.c
+@@ -0,0 +1,82 @@
++/* { dg-do compile } */
++/* { dg-skip-if "-march given" { *-*-* } { "-march=*" } } */
++/* { dg-options "-mcpu=spacemit-a100" { target { rv64 } } } */
++/* Spacemit A100 => rv64imafdcv_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_
++ * ziccamoa_ziccif_zicclsm_ziccrse_zicsr_zifencei_zihintntl_svpbmt_
++ * smepmp_sstc_sscofpmf_zicond_zicboz_zicbom_zicbop_zicntr_zihpm_
++ * za64rs_zkt_svinval_svnapot_zihintpause_zbkc_zvfh_zvfhmin_zvl1024b_
++ * zfa_zca_zcb_zcd_zvbb_zvkng_zvknha_smstateen_ssstateen_zfbfmin_
++ * zvfbfmin_zvfbfwma_zimop_zcmop_smnpm_ssnpm_sspm_zawrs_zvknc_zvksc_
++ * zvksg_supm_xsmtvdotii
++ */
++
++#if !((__riscv_xlen == 64)		\
++      && !defined(__riscv_32e)		\
++      && defined(__riscv_mul)		\
++      && defined(__riscv_atomic)	\
++      && (__riscv_flen == 64)		\
++      && defined(__riscv_compressed)	\
++      && defined(__riscv_v)             \
++      && defined(__riscv_zic64b)	\
++      && defined(__riscv_zba)	\
++      && defined(__riscv_zbb)	\
++      && defined(__riscv_zbc)	\
++      && defined(__riscv_zbs)	\
++      && defined(__riscv_zfh)	\
++      && defined(__riscv_zfhmin)	\
++      && defined(__riscv_ziccamoa)	\
++      && defined(__riscv_ziccif)	\
++      && defined(__riscv_zicclsm)       \
++      && defined(__riscv_ziccrse)       \
++      && defined(__riscv_zicsr)       \
++      && defined(__riscv_zifencei)       \
++      && defined(__riscv_zihintntl)       \
++      && defined(__riscv_svpbmt)       \
++      && defined(__riscv_smepmp)       \
++      && defined(__riscv_sstc)       \
++      && defined(__riscv_sscofpmf)       \
++      && defined(__riscv_zicond)       \
++      && defined(__riscv_zicboz)       \
++      && defined(__riscv_zicbom)       \
++      && defined(__riscv_zicbop)       \
++      && defined(__riscv_zicntr)       \
++      && defined(__riscv_zihpm)       \
++      && defined(__riscv_za64rs)       \
++      && defined(__riscv_zkt)       \
++      && defined(__riscv_svinval)       \
++      && defined(__riscv_svnapot)       \
++      && defined(__riscv_zihintpause)       \
++      && defined(__riscv_zbkc)       \
++      && defined(__riscv_zvfh)       \
++      && defined(__riscv_zvfhmin)       \
++      && defined(__riscv_zvl1024b)       \
++      && defined(__riscv_zfa)       \
++      && defined(__riscv_zca)       \
++      && defined(__riscv_zcb)       \
++      && defined(__riscv_zcd)       \
++      && defined(__riscv_zvbb)       \
++      && defined(__riscv_zvkng)       \
++      && defined(__riscv_zvknha)       \
++      && defined(__riscv_smstateen)    \
++      && defined(__riscv_ssstateen)    \
++      && defined(__riscv_zfbfmin)    \
++      && defined(__riscv_zvfbfmin)       \
++      && defined(__riscv_zvfbfwma)       \
++      && defined(__riscv_zimop)       \
++      && defined(__riscv_zcmop)       \
++      && defined(__riscv_smnpm)       \
++      && defined(__riscv_ssnpm)       \
++      && defined(__riscv_sspm)       \
++      && defined(__riscv_zawrs)       \
++      && defined(__riscv_zvknc)       \
++      && defined(__riscv_zvksc)       \
++      && defined(__riscv_zvksg)    \
++      && defined(__riscv_supm)    \
++      && defined(__riscv_xsmtvdotii))
++#error "unexpected arch"
++#endif
++
++int main()
++{
++  return 0;
++}
+diff --git a/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x100.c b/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x100.c
+new file mode 100644
+index 000000000..92f894885
+--- /dev/null
++++ b/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x100.c
+@@ -0,0 +1,83 @@
++/* { dg-do compile } */
++/* { dg-skip-if "-march given" { *-*-* } { "-march=*" } } */
++/* { dg-options "-mcpu=spacemit-x100" { target { rv64 } } } */
++/* Spacemit X100 => rv64imafdcv_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_
++ * ziccamoa_ziccif_zicclsm_ziccrse_zicsr_zifencei_zihintntl_svpbmt_
++ * smepmp_sstc_sscofpmf_zicond_zicboz_zicbom_zicbop_zicntr_zihpm_
++ * za64rs_zkt_svinval_svnapot_zihintpause_zbkc_zvfh_zvfhmin_zvl256b_
++ * zfa_zca_zcb_zcd_zvbb_zvkng_zvknha_smstateen_ssstateen_zfbfmin_
++ * zvfbfmin_zvfbfwma_zimop_zcmop_smnpm_ssnpm_sspm_zawrs_zvknc_zvksc_
++ * zvksg_supm_xsmtvdot
++ */
++
++#if !((__riscv_xlen == 64)		\
++      && !defined(__riscv_32e)		\
++      && defined(__riscv_mul)		\
++      && defined(__riscv_atomic)	\
++      && (__riscv_flen == 64)		\
++      && defined(__riscv_compressed)	\
++      && defined(__riscv_v)             \
++      && defined(__riscv_h)             \
++      && defined(__riscv_zic64b)	\
++      && defined(__riscv_zba)	\
++      && defined(__riscv_zbb)	\
++      && defined(__riscv_zbc)	\
++      && defined(__riscv_zbs)	\
++      && defined(__riscv_zfh)	\
++      && defined(__riscv_zfhmin)	\
++      && defined(__riscv_ziccamoa)	\
++      && defined(__riscv_ziccif)	\
++      && defined(__riscv_zicclsm)       \
++      && defined(__riscv_ziccrse)       \
++      && defined(__riscv_zicsr)       \
++      && defined(__riscv_zifencei)       \
++      && defined(__riscv_zihintntl)       \
++      && defined(__riscv_svpbmt)       \
++      && defined(__riscv_smepmp)       \
++      && defined(__riscv_sstc)       \
++      && defined(__riscv_sscofpmf)       \
++      && defined(__riscv_zicond)       \
++      && defined(__riscv_zicboz)       \
++      && defined(__riscv_zicbom)       \
++      && defined(__riscv_zicbop)       \
++      && defined(__riscv_zicntr)       \
++      && defined(__riscv_zihpm)       \
++      && defined(__riscv_za64rs)       \
++      && defined(__riscv_zkt)       \
++      && defined(__riscv_svinval)       \
++      && defined(__riscv_svnapot)       \
++      && defined(__riscv_zihintpause)       \
++      && defined(__riscv_zbkc)       \
++      && defined(__riscv_zvfh)       \
++      && defined(__riscv_zvfhmin)       \
++      && defined(__riscv_zvl256b)       \
++      && defined(__riscv_zfa)       \
++      && defined(__riscv_zca)       \
++      && defined(__riscv_zcb)       \
++      && defined(__riscv_zcd)       \
++      && defined(__riscv_zvbb)       \
++      && defined(__riscv_zvkng)       \
++      && defined(__riscv_zvknha)       \
++      && defined(__riscv_smstateen)    \
++      && defined(__riscv_ssstateen)    \
++      && defined(__riscv_zfbfmin)    \
++      && defined(__riscv_zvfbfmin)       \
++      && defined(__riscv_zvfbfwma)       \
++      && defined(__riscv_zimop)       \
++      && defined(__riscv_zcmop)       \
++      && defined(__riscv_smnpm)       \
++      && defined(__riscv_ssnpm)       \
++      && defined(__riscv_sspm)       \
++      && defined(__riscv_zawrs)       \
++      && defined(__riscv_zvknc)       \
++      && defined(__riscv_zvksc)       \
++      && defined(__riscv_zvksg)    \
++      && defined(__riscv_supm)    \
++      && defined(__riscv_xsmtvdot))
++#error "unexpected arch"
++#endif
++
++int main()
++{
++  return 0;
++}
+diff --git a/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x60.c b/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x60.c
+new file mode 100644
+index 000000000..a0e913705
+--- /dev/null
++++ b/src/gcc/testsuite/gcc.target/riscv/mcpu-spacemit-x60.c
+@@ -0,0 +1,57 @@
++/* { dg-do compile } */
++/* { dg-skip-if "-march given" { *-*-* } { "-march=*" } } */
++/* { dg-options "-mcpu=spacemit-x60" { target { rv64 } } } */
++/* Spacemit X60 => rv64imafdcv_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_
++ * ziccamoa_ziccif_zicclsm_ziccrse_zicsr_zifencei_zihintntl_svpbmt_
++ * smepmp_sstc_sscofpmf_zicond_zicboz_zicbom_zicbop_zicntr_zihpm_
++ * za64rs_zkt_svinval_svnapot_zihintpause_zbkc_zvfh_zvfhmin_zvl256b_
++ * xsmtvdot
++ */
++
++#if !((__riscv_xlen == 64)		\
++      && !defined(__riscv_32e)		\
++      && defined(__riscv_mul)		\
++      && defined(__riscv_atomic)	\
++      && (__riscv_flen == 64)		\
++      && defined(__riscv_compressed)	\
++      && defined(__riscv_v)             \
++      && defined(__riscv_zic64b)	\
++      && defined(__riscv_zba)	\
++      && defined(__riscv_zbb)	\
++      && defined(__riscv_zbc)	\
++      && defined(__riscv_zbs)	\
++      && defined(__riscv_zfh)	\
++      && defined(__riscv_zfhmin)	\
++      && defined(__riscv_ziccamoa)	\
++      && defined(__riscv_ziccif)	\
++      && defined(__riscv_zicclsm)       \
++      && defined(__riscv_ziccrse)       \
++      && defined(__riscv_zicsr)       \
++      && defined(__riscv_zifencei)       \
++      && defined(__riscv_zihintntl)       \
++      && defined(__riscv_svpbmt)       \
++      && defined(__riscv_smepmp)       \
++      && defined(__riscv_sstc)       \
++      && defined(__riscv_sscofpmf)       \
++      && defined(__riscv_zicond)       \
++      && defined(__riscv_zicboz)       \
++      && defined(__riscv_zicbom)       \
++      && defined(__riscv_zicbop)       \
++      && defined(__riscv_zicntr)       \
++      && defined(__riscv_zihpm)       \
++      && defined(__riscv_za64rs)       \
++      && defined(__riscv_zkt)       \
++      && defined(__riscv_svinval)       \
++      && defined(__riscv_svnapot)       \
++      && defined(__riscv_zihintpause)       \
++      && defined(__riscv_zbkc)       \
++      && defined(__riscv_zvfh)       \
++      && defined(__riscv_zvfhmin)       \
++      && defined(__riscv_xsmtvdot))
++#error "unexpected arch"
++#endif
++
++int main()
++{
++  return 0;
++}
+-- 
+2.34.1
+

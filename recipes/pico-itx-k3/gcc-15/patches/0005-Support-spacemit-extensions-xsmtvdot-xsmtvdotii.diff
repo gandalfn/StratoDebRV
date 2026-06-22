@@ -1,0 +1,96 @@
+From 616857ae82162b4b30bc3c70aadec791822abaab Mon Sep 17 00:00:00 2001
+From: Mark Zhuang <mark.zhuang@spacemit.com>
+Date: Tue, 21 Oct 2025 13:58:00 +0800
+Subject: [PATCH 5/8] Support spacemit extensions: xsmtvdot/xsmtvdotii
+
+---
+ src/gcc/common/config/riscv/riscv-common.cc | 9 +++++++++
+ src/gcc/config/riscv/riscv-cores.def        | 6 +++---
+ src/gcc/config/riscv/riscv.opt              | 7 +++++++
+ 3 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/src/gcc/common/config/riscv/riscv-common.cc b/src/gcc/common/config/riscv/riscv-common.cc
+index 89c9ef775..9d1aeae9a 100644
+--- a/src/gcc/common/config/riscv/riscv-common.cc
++++ b/src/gcc/common/config/riscv/riscv-common.cc
+@@ -233,6 +233,9 @@ static const riscv_implied_info_t riscv_implied_info[] =
+ 
+   {"xsfvcp", "zve32x"},
+ 
++  {"xsmtvdot", "zve32x"},
++  {"xsmtvdotii", "xsmtvdot"},
++
+   {NULL, NULL}
+ };
+ 
+@@ -454,6 +457,9 @@ static const struct riscv_ext_version riscv_ext_version_table[] =
+   {"xsfvqmaccdod",    ISA_SPEC_CLASS_NONE, 1, 0},
+   {"xsfvfnrclipxfqf", ISA_SPEC_CLASS_NONE, 1, 0},
+ 
++  {"xsmtvdot",   ISA_SPEC_CLASS_NONE, 1, 0},
++  {"xsmtvdotii", ISA_SPEC_CLASS_NONE, 1, 0},
++
+   /* Terminate the list.  */
+   {NULL, ISA_SPEC_CLASS_NONE, 0, 0}
+ };
+@@ -1818,6 +1824,9 @@ static const riscv_ext_flag_table_t riscv_ext_flag_table[] =
+   RISCV_EXT_FLAG_ENTRY ("xsfvqmaccdod",    x_riscv_sifive_subext, MASK_XSFVQMACCDOD),
+   RISCV_EXT_FLAG_ENTRY ("xsfvfnrclipxfqf", x_riscv_sifive_subext, MASK_XSFVFNRCLIPXFQF),
+ 
++  RISCV_EXT_FLAG_ENTRY ("xsmtvdot",   x_riscv_spacemit_subext, MASK_XSMTVDOT),
++  RISCV_EXT_FLAG_ENTRY ("xsmtvdotii",   x_riscv_spacemit_subext, MASK_XSMTVDOTII),
++
+   {NULL, NULL, NULL, 0}
+ };
+ 
+diff --git a/src/gcc/config/riscv/riscv-cores.def b/src/gcc/config/riscv/riscv-cores.def
+index a49d28907..f4a377d11 100644
+--- a/src/gcc/config/riscv/riscv-cores.def
++++ b/src/gcc/config/riscv/riscv-cores.def
+@@ -98,14 +98,14 @@ RISCV_CORE("spacemit-a100",   "rv64imafdcv_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_"
+ 			      "zvfh_zvfhmin_zvl1024b_"
+ 			      "zfa_zca_zcb_zcd_zvbb_zvkng_zvknha_smstateen_ssstateen_zfbfmin_"
+ 			      "zvfbfmin_zvfbfwma_zimop_zcmop_smnpm_ssnpm_sspm_zawrs_"
+-			      "zvknc_zvksc_zvksg_supm",
++			      "zvknc_zvksc_zvksg_supm_xsmtvdotii",
+ 			      "spacemit-a100")
+ 
+ RISCV_CORE("spacemit-x60",    "rv64imafdcv_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_"
+ 			      "ziccamoa_ziccif_zicclsm_ziccrse_zicsr_zifencei_zihintntl_svpbmt_"
+ 			      "smepmp_sstc_sscofpmf_zicond_zicboz_zicbom_zicbop_zicntr_"
+ 			      "zihpm_za64rs_zkt_svinval_svnapot_zihintpause_zbkc_"
+-			      "zvfh_zvfhmin_zvl256b",
++			      "zvfh_zvfhmin_zvl256b_xsmtvdot",
+ 			      "spacemit-x60")
+ 
+ RISCV_CORE("spacemit-x100",   "rv64imafdcvh_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_"
+@@ -115,7 +115,7 @@ RISCV_CORE("spacemit-x100",   "rv64imafdcvh_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_"
+ 			      "zvfh_zvfhmin_zvl256b_"
+ 			      "zfa_zca_zcb_zcd_zvbb_zvkng_zvknha_smstateen_ssstateen_zfbfmin_"
+ 			      "zvfbfmin_zvfbfwma_zimop_zcmop_smnpm_ssnpm_sspm_zawrs_"
+-			      "zvknc_zvksc_zvksg_supm",
++			      "zvknc_zvksc_zvksg_supm_xsmtvdot",
+ 			      "spacemit-x100")
+ 
+ RISCV_CORE("thead-c906",      "rv64imafdc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_"
+diff --git a/src/gcc/config/riscv/riscv.opt b/src/gcc/config/riscv/riscv.opt
+index 663e31903..bf0c3d595 100644
+--- a/src/gcc/config/riscv/riscv.opt
++++ b/src/gcc/config/riscv/riscv.opt
+@@ -558,6 +558,13 @@ Mask(XSFVQMACCDOD) Var(riscv_sifive_subext)
+ 
+ Mask(XSFVFNRCLIPXFQF) Var(riscv_sifive_subext)
+ 
++TargetVariable
++int riscv_spacemit_subext
++
++Mask(XSMTVDOT) Var(riscv_spacemit_subext)
++
++Mask(XSMTVDOTII) Var(riscv_spacemit_subext)
++
+ TargetVariable
+ int riscv_fmv_priority = 0
+ 
+-- 
+2.34.1
+

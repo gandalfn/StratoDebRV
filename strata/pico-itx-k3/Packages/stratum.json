@@ -1,0 +1,8 @@
+{
+    "recipes": [
+        "setup-rootfs",
+        "wrapper",
+        "glibc",
+        "binutils"
+    ]
+}

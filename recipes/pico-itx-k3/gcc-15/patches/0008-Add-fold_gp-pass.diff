@@ -1,0 +1,843 @@
+From 0eccfc958b06e7277c901c6629b1000a2df8241b Mon Sep 17 00:00:00 2001
+From: LiqinWeng <liqin.weng@spacemit.com>
+Date: Thu, 11 Sep 2025 10:33:22 +0800
+Subject: [PATCH 8/8] Add fold_gp pass
+
+---
+ src/gcc/config.gcc                    |   2 +-
+ src/gcc/config/riscv/bitmanip.md      |  13 +
+ src/gcc/config/riscv/riscv-fold-gp.cc | 451 ++++++++++++++++++++++++++
+ src/gcc/config/riscv/riscv-passes.def |   1 +
+ src/gcc/config/riscv/riscv-protos.h   |   5 +-
+ src/gcc/config/riscv/riscv.cc         | 128 ++++++++
+ src/gcc/config/riscv/riscv.md         |  15 +
+ src/gcc/config/riscv/t-riscv          |   5 +
+ src/gcc/doc/tm.texi                   |   4 +
+ src/gcc/doc/tm.texi.in                |   2 +
+ src/gcc/target.def                    |   6 +
+ src/gcc/targhooks.cc                  |   4 +
+ src/gcc/targhooks.h                   |   1 +
+ 13 files changed, 635 insertions(+), 2 deletions(-)
+ create mode 100644 src/gcc/config/riscv/riscv-fold-gp.cc
+
+diff --git a/src/gcc/config.gcc b/src/gcc/config.gcc
+index a990605be..2537279b8 100644
+--- a/src/gcc/config.gcc
++++ b/src/gcc/config.gcc
+@@ -560,7 +560,7 @@ pru-*-*)
+ 	;;
+ riscv*)
+ 	cpu_type=riscv
+-	extra_objs="riscv-builtins.o riscv-c.o riscv-sr.o riscv-shorten-memrefs.o riscv-selftests.o riscv-string.o"
++	extra_objs="riscv-builtins.o riscv-c.o riscv-sr.o riscv-fold-gp.o riscv-shorten-memrefs.o riscv-selftests.o riscv-string.o"
+ 	extra_objs="${extra_objs} riscv-v.o riscv-vsetvl.o riscv-vector-costs.o riscv-avlprop.o"
+ 	extra_objs="${extra_objs} riscv-vector-builtins.o riscv-vector-builtins-shapes.o riscv-vector-builtins-bases.o sifive-vector-builtins-bases.o"
+ 	extra_objs="${extra_objs} thead.o riscv-target-attr.o riscv-zicfilp.o"
+diff --git a/src/gcc/config/riscv/bitmanip.md b/src/gcc/config/riscv/bitmanip.md
+index 320531cd1..869c36885 100644
+--- a/src/gcc/config/riscv/bitmanip.md
++++ b/src/gcc/config/riscv/bitmanip.md
+@@ -39,6 +39,19 @@
+   [(set_attr "type" "bitmanip")
+    (set_attr "mode" "<X:MODE>")])
+ 
++(define_insn "gprel_shxadd<X:MODE>"
++  [(set (match_operand:X 0 "register_operand" "=r")
++  (unspec:X
++  [(ashift:X (match_operand:X 1 "register_operand" "r")
++			  (match_operand:QI 2 "imm123_operand" "Ds3"))
++		(match_operand:X 3 "register_operand" "r")
++    (match_operand:X 4 "symbolic_operand" "")]
++  UNSPEC_GPREL_SHXADD))]
++  "TARGET_ZBA"
++  "sh%2add\t%0,%1,%3,%%gprel_shxadd(%4)"
++  [(set_attr "type" "bitmanip")
++   (set_attr "mode" "<X:MODE>")])
++
+ ; When using strength-reduction, we will reduce a multiplication to a
+ ; sequence of shifts and adds.  If this is performed with 32-bit types
+ ; and followed by a division, the lack of w-form sh[123]add will make
+diff --git a/src/gcc/config/riscv/riscv-fold-gp.cc b/src/gcc/config/riscv/riscv-fold-gp.cc
+new file mode 100644
+index 000000000..c610a910a
+--- /dev/null
++++ b/src/gcc/config/riscv/riscv-fold-gp.cc
+@@ -0,0 +1,451 @@
++/* fold-gp pass for RISC-V.
++   Copyright (C) 2018-2024 Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify
++it under the terms of the GNU General Public License as published by
++the Free Software Foundation; either version 3, or (at your option)
++any later version.
++
++GCC is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
++#define IN_TARGET_CODE 1
++
++#include "config.h"
++#include "system.h"
++#include "coretypes.h"
++#include "tm.h"
++#include "rtl.h"
++#include "backend.h"
++#include "regs.h"
++#include "target.h"
++#include "memmodel.h"
++#include "emit-rtl.h"
++#include "df.h"
++#include "predict.h"
++#include "tree-pass.h"
++#include "cfgrtl.h"
++
++/*
++This optimization is mainly to explain the low address of ADDI to the memory offset of ld/st,
++reducing the low address calculation instructions.
++1) if non-gprelax:
++lui + addi + add + ld/st ---> lui + add + ld/st (iff addend == 0)
++lui + addi + addi + add + ld/st ---> lui + add + ld/st (iff addend > 0)
++2) if gprelax:
++addi + add + ld/st ---> add + ld/st
++*/
++
++namespace {
++
++const pass_data pass_data_fold_gp =
++{
++  RTL_PASS, /* type */
++  "fold_gp", /* name */
++  OPTGROUP_NONE, /* optinfo_flags */
++  TV_NONE, /* tv_id */
++  0, /* properties_required */
++  0, /* properties_provided */
++  0, /* properties_destroyed */
++  0, /* todo_flags_start */
++  0, /* todo_flags_finish */
++};
++
++class pass_fold_gp : public rtl_opt_pass
++{
++public:
++  pass_fold_gp (gcc::context *ctxt)
++    : rtl_opt_pass (pass_data_fold_gp, ctxt)
++  {}
++
++  /* opt_pass methods: */
++  virtual bool gate (function *)
++    {
++      return optimize > 0;
++    }
++  virtual unsigned int execute (function *);
++
++private:
++
++  void analyze_and_transform (rtx_insn *hi, rtx_insn *lo, rtx_insn *add, rtx_insn *mem);
++  bool detectFoldable(rtx_insn *high_insn, rtx_insn *&lo_insn);
++  rtx getMemAddr (rtx_insn *mem);
++  void sym_add_mem_off (rtx_insn *&hi, rtx_insn *&lo, rtx_insn *mem);
++  bool foldGPIntoMemoryOps(rtx_insn *lo, rtx_insn *&add, rtx_insn *&mem);
++}; // class pass_fold_gp
++
++/*
++  Iff the insn has only one used insn, and use_insn can't be used in JUMP or CALL,
++  and except the DEBUG Insn.
++*/
++static bool hasOneUse (rtx_insn *insn, rtx dest, rtx_insn *&use_insn)
++{
++  if (!REG_P(dest))
++    return false;
++
++  df_ref use;
++  int use_count = 0;
++  unsigned int regno = REGNO (dest);
++
++  for (use = DF_REG_USE_CHAIN (regno); use; use = DF_REF_NEXT_REG (use))
++  {
++    if (!DF_REF_INSN_INFO(use))
++      continue;
++
++    if (CALL_P (DF_REF_INSN (use)) || JUMP_P (DF_REF_INSN (use)))
++      return false;
++
++    if (DEBUG_INSN_P (DF_REF_INSN (use)))
++      continue;
++
++    use_count++;
++    use_insn = DF_REF_INSN (use);
++  }
++
++  if (use_count == 1 && use_insn)
++    return true;
++
++  return false;
++}
++
++/* Symbol Bind is not local can be optimize */
++static bool symbol_binds_local_p (const_rtx x)
++{
++  if (SYMBOL_REF_P (x))
++    return (SYMBOL_REF_DECL (x)
++	    ? targetm.binds_local_p (SYMBOL_REF_DECL (x))
++	    : SYMBOL_REF_LOCAL_P (x));
++  else
++    return false;
++}
++
++/*
++Detect the patterns:
++(insn 6 3 7 2 (set (reg/f:DI 137)
++                   (high:DI (symbol_ref:DI ("bin_infos") [flags 0xc0]  <var_decl 0x7f6f6ccc2c60
++(insn 7 6 9 2 (set (reg/f:DI 138)
++                   (lo_sum:DI (reg/f:DI 137)
++                              (symbol_ref:DI ("bin_infos") [flags 0xc0]  <var_decl 0x7f6f6ccc2c60
++
++The pattern is only accepted if:
++   1) The first instruction has only one use, which is the LO_SUM
++   2) The symbol need is the Global Address
++*/
++bool pass_fold_gp::detectFoldable(rtx_insn *hi_insn, rtx_insn *&lo_insn) {
++  rtx hi_set = single_set (hi_insn);
++  if (hi_set == NULL_RTX)
++    return false;
++
++  if (GET_CODE (SET_SRC (hi_set)) != HIGH)
++    return false;
++
++  if (GET_CODE (XEXP (SET_SRC (hi_set), 0)) != SYMBOL_REF ||
++      symbol_binds_local_p (XEXP (SET_SRC (hi_set), 0)))
++    return false;
++  
++  if (!hasOneUse(hi_insn, SET_DEST (hi_set), lo_insn))
++    return false;
++
++  rtx lo_set = single_set (lo_insn);
++  if (lo_set == NULL_RTX)
++    return false;
++
++  if (GET_CODE (SET_SRC (lo_set)) != LO_SUM)
++    return false;
++
++  if (GET_CODE (XEXP (SET_SRC (lo_set), 1)) != SYMBOL_REF ||
++      symbol_binds_local_p (XEXP (SET_SRC (lo_set), 1)))
++    return false;
++
++  return true;
++}
++
++// Mem Pattern as:
++// 1. (set (mem:SI (reg/f:DI 139)
++// 2. (set (reg/i:DI 10 a0) (mem:DI (reg/f:DI 140)
++// 3. (set (reg/i:DI 10 a0) (zero_extend:DI (mem:QI (reg/f:DI 139)
++// 4. (set (reg/i:DI 10 a0) (sign_extend:DI (mem:SI (reg/f:DI 139)
++rtx pass_fold_gp::getMemAddr (rtx_insn *mem) {
++  if (!mem)
++    return NULL_RTX;
++
++  rtx mem_dst = SET_DEST (PATTERN (mem));
++  rtx mem_src = SET_SRC (PATTERN (mem));
++
++  if (MEM_P (mem_src))
++    return XEXP (mem_src, 0);
++  else if (MEM_P (mem_dst))
++    return XEXP (mem_dst, 0);
++  else if ((GET_CODE (mem_src) == ZERO_EXTEND ||
++      GET_CODE (mem_src) == SIGN_EXTEND) &&
++      MEM_P (XEXP (mem_src, 0)))
++    return XEXP (XEXP (mem_src, 0), 0);
++}
++
++static void update_lui_and_lo (rtx_insn *&hi, rtx_insn *&lo,
++                               rtx sym, HOST_WIDE_INT offset) {
++  machine_mode mode = GET_MODE (sym);
++  rtx off = gen_rtx_PLUS(mode, sym, GEN_INT(offset));
++  rtx sym_and_off =  gen_rtx_CONST(mode, off);
++  // update hi symbol
++  XEXP (SET_SRC (PATTERN (hi)), 0) = sym_and_off;
++  // update lo symbol
++  XEXP (SET_SRC (PATTERN (lo)), 1) = sym_and_off;
++}
++
++/*
++Example as:
++extern long long g[10];
++long long __attribute__((noinline)) foo(int i) {
++  return g[i + 3];
++}
++
++(set (reg/f:DI 138)
++     (high:DI (symbol_ref:DI ("g2") [flags 0xc0])))
++(set (reg/f:DI 139)
++     (lo_sum:DI (reg/f:DI 138)
++                (symbol_ref:DI ("g2") [flags 0xc0])))
++(set (reg:DI 141)
++     (sign_extend:DI (plus:SI (subreg:SI (reg:DI 146) 0)
++                              (const_int 3 [0x3]))))
++(set (reg/f:DI 144)
++     (plus:DI (ashift:DI (reg:DI 141) (const_int 3 [0x3]))
++                         (reg/f:DI 139)))
++(set (reg/i:DI 10 a0)
++     (mem:DI (reg/f:DI 144) [2 g2[_1]+0 S8 A64]))
++
++------ Transform -------
++
++(set (reg/f:DI 138)
++     (high:DI (const:DI (plus:DI (symbol_ref:DI ("g2"))
++                                 (const_int 24 [0x18])))))
++(set (reg/f:DI 139)
++     (lo_sum:DI (reg/f:DI 138)
++     (const:DI (plus:DI (symbol_ref:DI ("g2"))
++                        (const_int 24 [0x18])))
++(set (reg/f:DI 144)
++     (plus:DI (ashift:DI (reg:DI 146) (const_int 3 [0x3]))
++                         (reg/f:DI 139)))
++(set (reg/i:DI 10 a0) (mem:DI (reg/f:DI 144) [2 g2[_1]+0 S8 A64]))
++*/
++static void remove_addi_update_lui_and_lo (rtx_insn *&hi_insn,
++                                           rtx_insn *&lo_insn, rtx_insn *&add_insn) {
++  rtx add_src = SET_SRC (PATTERN (add_insn));
++  rtx reg = XEXP (add_src, 0) == SET_DEST (PATTERN (lo_insn)) ?
++            XEXP (add_src, 1) : XEXP (add_src, 0);
++  HOST_WIDE_INT shift_num = 0;
++  rtx_insn *def_insn = NULL;
++  df_ref def;
++  bool add_ashift_sep = false;
++  if (GET_CODE (reg) == REG)
++  {
++    def = DF_REG_DEF_CHAIN (REGNO (reg));
++    def_insn = DF_REF_INSN (def);
++    // When Target not support zba && split the shift and plus insn,
++    // we need update the ashift src'0. Otherwise only deal with the plus
++    // (set (reg:DI 143)
++    //      (ashift:DI (reg:DI 141)
++    //                 (const_int 1 [0x1])))
++    // (set (reg/f:DI 144)
++    //      (plus:DI (reg/f:DI 139)
++    //               (reg:DI 143)))
++    if (def_insn && GET_CODE (PATTERN (def_insn)) == SET &&
++        GET_CODE (SET_SRC (PATTERN (def_insn))) == ASHIFT)
++    {
++        add_src = SET_SRC (PATTERN (def_insn));
++        shift_num = INTVAL (XEXP (SET_SRC (PATTERN (def_insn)), 1));
++        def = DF_REG_DEF_CHAIN (REGNO (XEXP (SET_SRC (PATTERN (def_insn)), 0)));
++        add_ashift_sep = true;
++    }
++  }
++  else if (GET_CODE (reg) == ASHIFT)
++  {
++    shift_num = INTVAL (XEXP (reg, 1));
++    def = DF_REG_DEF_CHAIN (REGNO (XEXP (reg, 0)));
++  }
++
++  def_insn = DF_REF_INSN (def);
++  rtx def_pat = PATTERN (def_insn);
++  rtx def_src = SET_SRC (def_pat);
++  rtx def_dst = SET_DEST (def_pat);
++
++  rtx_insn *def_insn_use = NULL;
++  if (!hasOneUse(def_insn, def_dst, def_insn_use))
++    return;
++
++  machine_mode mode = GET_MODE(def_dst);
++  if (GET_CODE (def_src) == SIGN_EXTEND && GET_CODE (XEXP (def_src, 0)) == PLUS &&
++      GET_CODE (XEXP (XEXP (def_src, 0), 1)) == CONST_INT) {
++      HOST_WIDE_INT off = INTVAL (XEXP (XEXP (def_src, 0), 1)) << shift_num;
++    rtx update_add_dst = XEXP (XEXP (XEXP (def_src, 0), 0), 0);
++    // FIXME: pr68619-2.c will failed
++    if (!SUBREG_P (XEXP (XEXP (def_src, 0), 0)))
++      return;
++
++    if (SMALL_OPERAND (off)) {
++      update_lui_and_lo (hi_insn, lo_insn, XEXP (SET_SRC (PATTERN (hi_insn)), 0), off);
++
++      if (add_ashift_sep) {
++        XEXP (add_src, 0) = update_add_dst;
++      } else {
++      if (GET_CODE (reg) == ASHIFT)
++        XEXP (reg, 0) = update_add_dst;
++      else if (reg == XEXP (add_src, 0))
++        XEXP (add_src, 0) = update_add_dst;
++      else if (reg == XEXP (add_src, 1))
++        XEXP (add_src, 1) = update_add_dst;
++      }
++      delete_insn(def_insn);
++      df_insn_rescan(add_insn);
++    }
++  }
++}
++
++/*
++mainly deal with access the struct member varival which not the first.
++Update the sym with mem's addr offset.
++example as:
++struct bin_info_s {
++  int reg_size;
++  int slab_size;
++};
++typedef struct bin_info_s bin_info_t;
++int  __attribute__((noinline)) test_gp(int i) {
++  bin_info_t *bin_info = &bin_infos[i];
++  return bin_info->slab_size;
++}
++
++Pattern Transform:
++(set (reg/f:DI 137)
++     (high:DI (symbol_ref:DI ("bin_infos") [flags 0xc0])))
++(set (reg/f:DI 138)
++     (lo_sum:DI (reg/f:DI 137)
++                (symbol_ref:DI ("bin_infos") [flags 0xc0])))
++(set (reg/f:DI 139)
++     (plus:DI (reg/f:DI 138) (reg:DI 140)))
++(set (reg/i:DI 10 a0)
++     (zero_extend:DI (mem:QI (plus:DI (reg/f:DI 139) (const_int 4 [0x4])))))
++
++------ Transform --------
++
++(set (reg/f:DI 137)
++     (high:DI (const:DI (plus:DI (symbol_ref:DI ("bin_infos"))
++                                 (const_int 4 [0x4])))))
++(set (reg/f:DI 138)
++     (lo_sum:DI (reg/f:DI 137)
++                (const:DI (plus:DI (symbol_ref:DI ("bin_infos"))
++                                   (const_int 4 [0x4])))))
++(set (reg/f:DI 139)
++     (plus:DI (reg/f:DI 138) (reg:DI 140)))
++(set (reg/i:DI 10 a0)
++    (zero_extend:DI (mem:QI (plus:DI (reg/f:DI 139) (const_int 4 [0x4])))))
++*/                        
++void pass_fold_gp::sym_add_mem_off (rtx_insn *&hi, rtx_insn *&lo,
++                                    rtx_insn *mem) {
++  rtx mem_plus = getMemAddr (mem);
++
++  if (mem_plus != NULL_RTX && GET_CODE (mem_plus) == PLUS &&
++      GET_CODE (XEXP (mem_plus, 1)) == CONST_INT) {
++    HOST_WIDE_INT off = INTVAL (XEXP (mem_plus, 1));
++    update_lui_and_lo (hi, lo, XEXP (SET_SRC (PATTERN (hi)), 0), off);
++  }
++}
++
++/*
++Non-constant addressing of global array subscripts, which can be
++increase the optimization scenarios of gp-relax
++
++C example as:
++extern char arr[42];
++char foo(int i) {
++  return arr[i];
++}
++
++Insn Pattern as:
++(insn 6 3 7 2 (set (reg/f:DI 137)
++              (high:DI (symbol_ref:DI ("g2") (nil))
++(insn 7 6 8 2 (set (reg/f:DI 138)
++              (lo_sum:DI (reg/f:DI 137) (symbol_ref:DI ("g2")
++(insn 8 7 9 2 (set (reg/f:DI 139)
++              (plus:DI (reg/f:DI 138) (reg:DI 143)))
++(insn 16 11 17 2 (set (reg/i:DI 10 a0)
++                 (zero_extend:DI (mem:QI (reg/f:DI 139)
++*/
++bool
++pass_fold_gp::foldGPIntoMemoryOps(rtx_insn *lo, rtx_insn *&add, rtx_insn *&mem) {
++  rtx lo_set = single_set (lo);
++  if (lo_set == NULL_RTX)
++    return false;
++
++  if (!hasOneUse(lo, SET_DEST (lo_set), add))
++    return false;
++
++  // Support Plus Pattern:
++  // 1. (plus:DI (reg/f:DI 137) (reg:DI 140)))
++  // 2. (plus:DI (ashift:DI (reg:DI 141) (const_int x [0xx])) (x is 1/2/3)
++  //             (reg/f:DI 137)))
++  if (GET_CODE (PATTERN (add)) != SET ||
++      GET_CODE (SET_SRC (PATTERN (add))) != PLUS ||
++     (GET_CODE (XEXP (SET_SRC (PATTERN (add)), 0)) != REG &&
++      GET_CODE (XEXP (SET_SRC (PATTERN (add)), 0)) != ASHIFT))
++    return false;
++
++  if (!hasOneUse (add,  SET_DEST (PATTERN (add)), mem))
++    return false;
++
++  rtx mem_pat = PATTERN (mem);
++  rtx mem_dst = SET_DEST (mem_pat);
++  rtx mem_src = SET_SRC (mem_pat);
++
++  // Support Mem Pattern as:
++  // 1. (set (mem:SI (reg/f:DI 139)
++  // 2. (set (reg/i:DI 10 a0) (mem:DI (reg/f:DI 140)
++  // 3. (set (reg/i:DI 10 a0) (zero_extend:DI (mem:QI (reg/f:DI 139)
++  // 4. (set (reg/i:DI 10 a0) (sign_extend:DI (mem:SI (reg/f:DI 139)
++  if (!MEM_P (mem_dst) && !MEM_P (mem_src) && !((GET_CODE (mem_src) == ZERO_EXTEND ||
++      GET_CODE (mem_src) == SIGN_EXTEND) && MEM_P (XEXP (mem_src, 0))))
++    return false;
++
++  return true;
++}
++
++void pass_fold_gp::analyze_and_transform (rtx_insn *hi, rtx_insn *lo, rtx_insn *add, rtx_insn *mem) {
++  if (!detectFoldable(hi, lo))
++    return;
++
++  if (foldGPIntoMemoryOps(lo, add, mem)) {
++    remove_addi_update_lui_and_lo (hi, lo, add);
++    sym_add_mem_off (hi, lo, mem);
++    targetm.gprel_sym_emit(hi, lo, add, mem);
++  }
++}
++
++unsigned int
++pass_fold_gp::execute (function *fn)
++{
++  basic_block bb;
++  rtx_insn *insn;
++  FOR_ALL_BB_FN (bb, fn)
++  {
++    FOR_BB_INSNS (bb, insn)
++      analyze_and_transform(insn, NULL, NULL, NULL);
++  }
++
++  return 0;
++}
++
++} // anon namespace
++
++rtl_opt_pass *
++make_pass_fold_gp (gcc::context *ctxt)
++{
++  return new pass_fold_gp (ctxt);
++}
+diff --git a/src/gcc/config/riscv/riscv-passes.def b/src/gcc/config/riscv/riscv-passes.def
+index 7e6a2a0e5..74230016e 100644
+--- a/src/gcc/config/riscv/riscv-passes.def
++++ b/src/gcc/config/riscv/riscv-passes.def
+@@ -17,6 +17,7 @@
+    along with GCC; see the file COPYING3.  If not see
+    <http://www.gnu.org/licenses/>.  */
+ 
++INSERT_PASS_AFTER (pass_combine, 1, pass_fold_gp);
+ INSERT_PASS_AFTER (pass_rtl_store_motion, 1, pass_shorten_memrefs);
+ INSERT_PASS_AFTER (pass_split_all_insns, 1, pass_avlprop);
+ INSERT_PASS_BEFORE (pass_fast_rtl_dce, 1, pass_vsetvl);
+diff --git a/src/gcc/config/riscv/riscv-protos.h b/src/gcc/config/riscv/riscv-protos.h
+index 2bedd878a..95f1ff554 100644
+--- a/src/gcc/config/riscv/riscv-protos.h
++++ b/src/gcc/config/riscv/riscv-protos.h
+@@ -36,8 +36,10 @@ enum riscv_symbol_type {
+   SYMBOL_TLS_IE,
+   SYMBOL_TLS_GD,
+   SYMBOL_TLSDESC,
++  SYMBOL_GPREL_ADD,
++  SYMBOL_GPREL_SHXADD,
+ };
+-#define NUM_SYMBOL_TYPES (SYMBOL_TLSDESC + 1)
++#define NUM_SYMBOL_TYPES (SYMBOL_GPREL_SHXADD + 1)
+ 
+ /* Classifies an address.
+ 
+@@ -197,6 +199,7 @@ extern void riscv_parse_arch_string (const char *, struct gcc_options *, locatio
+ 
+ extern bool riscv_hard_regno_rename_ok (unsigned, unsigned);
+ 
++rtl_opt_pass * make_pass_fold_gp (gcc::context *ctxt);
+ rtl_opt_pass * make_pass_shorten_memrefs (gcc::context *ctxt);
+ rtl_opt_pass * make_pass_avlprop (gcc::context *ctxt);
+ rtl_opt_pass * make_pass_vsetvl (gcc::context *ctxt);
+diff --git a/src/gcc/config/riscv/riscv.cc b/src/gcc/config/riscv/riscv.cc
+index c82f806e9..c0112a8f3 100644
+--- a/src/gcc/config/riscv/riscv.cc
++++ b/src/gcc/config/riscv/riscv.cc
+@@ -1734,6 +1734,8 @@ static int riscv_symbol_insns (enum riscv_symbol_type type)
+     case SYMBOL_TLSDESC: return 6; /* 4-instruction call + ADD TP + the reference.  */
+     case SYMBOL_GOT_DISP: return 3; /* AUIPC + LD GOT + the reference.  */
+     case SYMBOL_FORCE_TO_MEM: return 3; /* AUIPC + LD + the reference.  */
++    case SYMBOL_GPREL_ADD: return 3; /* LUI + the reference + ADD */
++    case SYMBOL_GPREL_SHXADD: return 3; /* LUI + the reference + SHXADD */
+     default: gcc_unreachable ();
+     }
+ }
+@@ -2034,6 +2036,9 @@ riscv_split_symbol_type (enum riscv_symbol_type symbol_type)
+   if (!TARGET_EXPLICIT_RELOCS)
+     return false;
+ 
++  if (symbol_type == SYMBOL_GPREL_ADD || symbol_type == SYMBOL_GPREL_SHXADD)
++    return true;
++
+   return symbol_type == SYMBOL_ABSOLUTE || symbol_type == SYMBOL_PCREL;
+ }
+ 
+@@ -2810,6 +2815,119 @@ static rtx riscv_tls_add_tp_le (rtx dest, rtx base, rtx sym)
+     return gen_tls_add_tp_lesi (dest, base, tp, sym);
+ }
+ 
++/* Add %gprel_add Reloc for global array non-const addressing optimization */
++
++static rtx riscv_gprel_add (rtx dest, rtx addend, rtx src2, rtx sym)
++{
++  if (Pmode == DImode)
++    return gen_gprel_adddi (dest, addend, src2, sym);
++  else
++    return gen_gprel_addsi (dest, addend, src2, sym);
++}
++
++/* Add %gprel_shxadd Reloc for global array non-const addressing optimization */
++
++static rtx riscv_gprel_shxadd (rtx dest, rtx src1, rtx src2, rtx sym)
++{
++  if (Xmode == DImode)
++    return gen_gprel_shxaddDI (dest, XEXP (src1, 0) , XEXP (src1, 1), src2, sym);
++  else
++    return gen_gprel_shxaddSI (dest, XEXP (src1, 0) , XEXP (src1, 1), src2, sym);
++}
++
++// Mem Pattern as:
++// 1. (set (mem:SI (reg/f:DI 139)
++// 2. (set (reg/i:DI 10 a0) (mem:DI (reg/f:DI 140)
++// 3. (set (reg/i:DI 10 a0) (zero_extend:DI (mem:QI (reg/f:DI 139)
++// 4. (set (reg/i:DI 10 a0) (sign_extend:DI (mem:SI (reg/f:DI 139)
++static void
++set_mem_address(rtx_insn *&mem, rtx addr) {
++  rtx pattern = PATTERN(mem);
++  if (GET_CODE(pattern) != SET)
++    return;
++  
++  rtx mem_dst = SET_DEST (PATTERN (mem));
++  rtx mem_src = SET_SRC (PATTERN (mem));
++
++  if (MEM_P (mem_src))
++    XEXP (mem_src, 0) = addr;
++  else if (MEM_P (mem_dst))
++    XEXP (mem_dst, 0) = addr;
++  else if ((GET_CODE (mem_src) == ZERO_EXTEND ||
++            GET_CODE (mem_src) == SIGN_EXTEND) &&
++           MEM_P (XEXP (mem_src, 0)))
++    XEXP (XEXP (mem_src, 0), 0) = addr;
++}
++
++// Add new relocation types for add and ld/st memory instructions to
++// ensure that subsequent address calculations are correct.
++static void
++riscv_gprel_sym_emit (rtx_insn *hi, rtx_insn *lo, rtx_insn *add, rtx_insn *mem) {
++  rtx_insn *mem_insn = NULL;
++
++  rtx hi_set = single_set (hi);
++  rtx lo_set = single_set (lo);
++  rtx add_set = single_set (add);
++
++  rtx hi_dst = SET_DEST (hi_set);
++  rtx lo_dst = SET_DEST (lo_set);
++  rtx lo_src = SET_SRC (lo_set);
++  // get symbol operand
++  rtx lo_op1 = XEXP (lo_src, 1);
++
++  rtx add_dst = SET_DEST (add_set);
++  rtx add_src = SET_SRC (add_set);
++  rtx add_op0 = XEXP (add_src, 0);
++  rtx add_op1 = XEXP (add_src,1);
++
++  machine_mode mode = GET_MODE(add_dst);
++  enum riscv_symbol_type symbol_type;
++  // get the insert place for add_insn
++  rtx_insn *add_prev = PREV_INSN(add);
++  if (TARGET_ZBA && GET_CODE(add_op0) == ASHIFT)
++  {
++    // Replace shxadd a1, a0, a1, %shxadd_gprel to shxadd a1, a0, a1
++    rtx shxadd_new_set = riscv_gprel_shxadd (add_dst, add_op0, hi_dst, lo_op1);
++    emit_insn_after(shxadd_new_set, add_prev);
++    symbol_type = SYMBOL_GPREL_SHXADD;
++  }
++  else
++  {
++    // Replace add a1, a0, a1, %gprel_add(sym) to add a1, a0, a1
++    // lo_sum will be delete, need update the use lo_sum's dest Reg by hi dest Reg
++    if (add_op0 == lo_dst)
++    {
++      add_op0 = hi_dst;
++    } 
++    else if (add_op1 == lo_dst)
++    {
++      add_op1 = hi_dst;
++    }
++      
++    rtx add_new_set = riscv_gprel_add (add_dst, add_op0, add_op1, lo_op1);
++    emit_insn_after(add_new_set, add_prev);
++    symbol_type = SYMBOL_GPREL_ADD;
++  }
++
++  rtx addr = gen_rtx_LO_SUM (mode, add_dst, riscv_unspec_address(lo_op1, symbol_type));
++  set_mem_address (mem, addr);
++
++  rtx_insn *mem_prev = PREV_INSN (mem);
++  mem_insn = emit_insn_after(single_set(mem), mem_prev);
++  if (INSN_P(mem_insn)) {
++      rtx note = find_reg_note(mem, REG_DEAD, NULL_RTX);
++      if (note) {
++        add_reg_note(mem_insn, REG_DEAD, XEXP(note, 0));
++      }
++  }
++
++  delete_insn(add);
++  delete_insn(lo);
++  delete_insn(mem);
++  df_insn_rescan(mem_insn);
++  df_analyze ();
++}
++
+ /* If MODE is MAX_MACHINE_MODE, ADDR appears as a move operand, otherwise
+    it appears in a MEM of that mode.  Return true if ADDR is a legitimate
+    constant in that context and can be split into high and low parts.
+@@ -6802,6 +6920,13 @@ riscv_print_operand_reloc (FILE *file, rtx op, bool hi_reloc)
+ 	reloc = hi_reloc ? "%hi" : "%lo";
+ 	break;
+ 
++      case SYMBOL_GPREL_ADD:
++	reloc = hi_reloc ? "%gprel_add" : "%gprel_lo";
++	break;
++      case SYMBOL_GPREL_SHXADD:
++	reloc = hi_reloc ? "%gprel_shxadd" : "%gprel_lo";
++	break;
++
+       case SYMBOL_PCREL:
+ 	reloc = hi_reloc ? "%pcrel_hi" : "%pcrel_lo";
+ 	break;
+@@ -14232,6 +14357,9 @@ bool need_shadow_stack_push_pop_p ()
+ #undef TARGET_NOCE_CONVERSION_PROFITABLE_P
+ #define TARGET_NOCE_CONVERSION_PROFITABLE_P riscv_noce_conversion_profitable_p
+ 
++#undef TARGET_GPREL_SYM_EMIT
++#define TARGET_GPREL_SYM_EMIT riscv_gprel_sym_emit
++
+ #undef TARGET_ASM_FILE_START
+ #define TARGET_ASM_FILE_START riscv_file_start
+ #undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
+diff --git a/src/gcc/config/riscv/riscv.md b/src/gcc/config/riscv/riscv.md
+index 4b4c7b993..83e48269a 100644
+--- a/src/gcc/config/riscv/riscv.md
++++ b/src/gcc/config/riscv/riscv.md
+@@ -49,6 +49,9 @@
+   UNSPEC_TLS_IE
+   UNSPEC_TLS_GD
+   UNSPEC_TLSDESC
++  ;; Relax the non-constant subscript addressing of global arrays
++  UNSPEC_GPREL_ADD
++  UNSPEC_GPREL_SHXADD
+   ;; High part of PC-relative address.
+   UNSPEC_AUIPC
+ 
+@@ -2402,6 +2405,18 @@
+   [(set_attr "type" "arith")
+    (set_attr "mode" "<MODE>")])
+ 
++(define_insn "gprel_add<mode>"
++  [(set (match_operand:P   0 "register_operand" "=r")
++	(unspec:P
++	 [(match_operand:P 1 "register_operand" "r")
++	  (match_operand:P 2 "register_operand" "r")
++	  (match_operand:P 3 "symbolic_operand" "")]
++	 UNSPEC_GPREL_ADD))]
++  ""
++  "add\t%0,%1,%2,%%gprel_add(%3)"
++  [(set_attr "type" "arith")
++   (set_attr "mode" "<MODE>")])
++
+ (define_insn "got_load_tls_gd<mode>"
+   [(set (match_operand:P      0 "register_operand" "=r")
+ 	(unspec:P
+diff --git a/src/gcc/config/riscv/t-riscv b/src/gcc/config/riscv/t-riscv
+index 6493087fe..be7bd24bc 100644
+--- a/src/gcc/config/riscv/t-riscv
++++ b/src/gcc/config/riscv/t-riscv
+@@ -109,6 +109,11 @@ riscv-d.o: $(srcdir)/config/riscv/riscv-d.cc \
+ 	$(COMPILE) $<
+ 	$(POSTCOMPILE)
+ 
++riscv-fold-gp.o: $(srcdir)/config/riscv/riscv-fold-gp.cc \
++  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TARGET_H)
++	$(COMPILE) $<
++	$(POSTCOMPILE)
++
+ riscv-shorten-memrefs.o: $(srcdir)/config/riscv/riscv-shorten-memrefs.cc \
+   $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TARGET_H)
+ 	$(COMPILE) $<
+diff --git a/src/gcc/doc/tm.texi b/src/gcc/doc/tm.texi
+index 19e8c49b2..156d1d110 100644
+--- a/src/gcc/doc/tm.texi
++++ b/src/gcc/doc/tm.texi
+@@ -7407,6 +7407,10 @@ candidate as a replacement for the if-convertible sequence described in
+ @code{if_info}.
+ @end deftypefn
+ 
++@deftypefn {Target Hook} void TARGET_GPREL_SYM_EMIT (rtx_insn *@var{hi}, rtx_insn *@var{lo}, rtx_insn *@var{add}, rtx_insn *@var{mem})
++This hook will add new Relocs for global array non-const addressing optimization
++@end deftypefn
++
+ @deftypefn {Target Hook} bool TARGET_NEW_ADDRESS_PROFITABLE_P (rtx @var{memref}, rtx_insn * @var{insn}, rtx @var{new_addr})
+ Return @code{true} if it is profitable to replace the address in
+ @var{memref} with @var{new_addr}.  This allows targets to prevent the
+diff --git a/src/gcc/doc/tm.texi.in b/src/gcc/doc/tm.texi.in
+index b33f312f9..c9d3b8fa7 100644
+--- a/src/gcc/doc/tm.texi.in
++++ b/src/gcc/doc/tm.texi.in
+@@ -4753,6 +4753,8 @@ Define this macro if a non-short-circuit operation produced by
+ 
+ @hook TARGET_NOCE_CONVERSION_PROFITABLE_P
+ 
++@hook TARGET_GPREL_SYM_EMIT
++
+ @hook TARGET_NEW_ADDRESS_PROFITABLE_P
+ 
+ @hook TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P
+diff --git a/src/gcc/target.def b/src/gcc/target.def
+index 6c7cdc812..0c0faa1f9 100644
+--- a/src/gcc/target.def
++++ b/src/gcc/target.def
+@@ -4118,6 +4118,12 @@ candidate as a replacement for the if-convertible sequence described in\n\
+ bool, (rtx_insn *seq, struct noce_if_info *if_info),
+ default_noce_conversion_profitable_p)
+ 
++DEFHOOK
++(gprel_sym_emit,
++ "This hook will add new Relocs for global array non-const addressing optimization",
++void, (rtx_insn *hi, rtx_insn *lo, rtx_insn *add, rtx_insn *mem),
++default_gprel_sym_emit)
++
+ /* Return true if new_addr should be preferred over the existing address used by
+    memref in insn.  */
+ DEFHOOK
+diff --git a/src/gcc/targhooks.cc b/src/gcc/targhooks.cc
+index c79458e37..78f044fb9 100644
+--- a/src/gcc/targhooks.cc
++++ b/src/gcc/targhooks.cc
+@@ -1829,6 +1829,10 @@ default_new_address_profitable_p (rtx memref ATTRIBUTE_UNUSED,
+   return true;
+ }
+ 
++void default_gprel_sym_emit (rtx_insn *, rtx_insn *, rtx_insn *, rtx_insn *)
++{
++}
++
+ bool
+ default_target_option_valid_attribute_p (tree ARG_UNUSED (fndecl),
+ 					 tree ARG_UNUSED (name),
+diff --git a/src/gcc/targhooks.h b/src/gcc/targhooks.h
+index f16b58798..d3f06b603 100644
+--- a/src/gcc/targhooks.h
++++ b/src/gcc/targhooks.h
+@@ -295,6 +295,7 @@ extern bool default_optab_supported_p (int, machine_mode, machine_mode,
+ extern unsigned int default_max_noce_ifcvt_seq_cost (edge);
+ extern bool default_noce_conversion_profitable_p (rtx_insn *,
+ 						  struct noce_if_info *);
++extern void default_gprel_sym_emit (rtx_insn *, rtx_insn *, rtx_insn *, rtx_insn *);
+ extern unsigned int default_min_arithmetic_precision (void);
+ 
+ extern enum flt_eval_method
+-- 
+2.34.1
+

@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import os 
 
 from src.common.Log import Log
 from src.system.Fs import Fs
@@ -74,4 +75,84 @@ class Package:
             self.__log.error(f"Failed to build package {self.__name}_{self.__version}")
             return False
                 
+        return True
+    
+class PackagePatch:
+    def __init__(self, context: str, path: str, patches: list):
+        self.__log = Log(f"{context}.PackagePatch")
+        self.__path = path
+        self.__patches = patches
+
+    def configure(self, recipePath: str) -> bool:
+        self.__log.info(f"Configuring package {self.__path}...")
+
+        patchesDir = f"{self.__path}/debian/patches"
+
+        if not Fs.mkdir(patchesDir):
+            self.__log.error(f"Failed to create patches directory: {patchesDir}")
+            return False
+
+        for patch in self.__patches:
+            src = f"{recipePath}/patches/{patch}"
+            dst = f"{patchesDir}/{patch}"
+            if not Fs.cp(src, dst):
+                self.__log.error(f"Failed to copy patch {src} to {dst}")
+                return False
+
+        try:
+            with open(f"{patchesDir}/series", 'a') as f:
+                for patch in self.__patches:
+                    f.write(f"{patch}\n")
+        except Exception as e:
+            self.__log.error(f"Failed to write series file: {e}")
+            return False
+        
+        runner = Runner(self.__log.context)
+        cmd = [
+            "quilt", "push", "-a"
+        ]
+        if not runner.run(cmd, self.__path):
+            self.__log.error(f"Failed to apply patches")
+            return False
+
+        env = {
+            'DEBFULLNAME': 'StartoDebRV',
+            'DEBEMAIL': 'gandalfn@gondor.com'
+        }    
+        cmd = [
+            'debchange', '-l', '+stratodeb', '-D', 'unstable',
+            'StartoDebRV release:\n'
+        ]
+        if not runner.run(cmd, self.__path, env):
+            self.__log.error(f"Failed to update changelog")
+            return False
+        for patch in self.__patches:
+            cmd = [
+                'debchange', '-a', f'{patch}',
+            ]
+            if not runner.run(cmd, self.__path, env):
+                self.__log.error(f"Failed to update changelog")
+                return False
+                
+        return True
+    
+    def build(self, arch: str, env: dict) -> bool:
+        self.__log.info(f"Building package...")
+
+        env['DEB_BUILD_OPTIONS'] = f'nocheck parallel={os.cpu_count()}'
+        runner = Runner(self.__log.context)
+        cmd = [
+            'dpkg-buildpackage',
+            '-d',
+            '--no-sign',
+            '-a', arch,
+            '-Pcross,nocheck',
+            '-j', 'auto',
+            '-b'
+        ]
+
+        if not runner.run(cmd, self.__path, env):
+            self.__log.error(f"Failed to cross-compile {self.__path}")
+            return False
+        
         return True

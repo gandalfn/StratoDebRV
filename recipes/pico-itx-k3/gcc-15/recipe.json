@@ -1,0 +1,22 @@
+{
+    "name": "Gcc",
+    "package": "gcc-15",
+    "version": "15.2.0",
+    "patches": [
+        "0001-RISC-V-Recognized-svadu-and-svade-extension.diff",
+        "0002-Elf-toolchain-select-lib-by-abi.diff",
+        "0003-gcc-define-__SPACEMIT_COMPILER.diff",
+        "0004-Support-spacemit-cores.diff",
+        "0005-Support-spacemit-extensions-xsmtvdot-xsmtvdotii.diff",
+        "0006-RISC-V-support-ascending-order-in-prologue-epilogue-.diff",
+        "0007-add-spacemit-mcpu-test.diff",
+        "0008-Add-fold_gp-pass.diff",
+        "0009-gcc-tune-stringop_strategy-for-spacemit.diff",
+        "pr107475.diff"
+    ],
+    "install": {
+        "packages": {
+            "{buildPath}/*.deb": "{outputPath}"
+        }
+    }
+}

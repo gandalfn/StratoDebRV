@@ -1,0 +1,181 @@
+From e295094a644e98bd63ea269ce4ae24c86fdd9966 Mon Sep 17 00:00:00 2001
+From: Zhijin Zeng <zhijin.zeng@spacemit.com>
+Date: Wed, 15 Jan 2025 11:17:09 +0800
+Subject: [PATCH 6/8] RISC-V: support ascending order in prologue/epilogue for
+ spacemit-x60
+
+1. Add some fusion option for spacemit-x60.
+2. Support ascending order in prologue and epilogue if set RISCV_FUSE_LDPAIR_ASCEND
+---
+ src/gcc/config/riscv/riscv.cc                 | 60 ++++++++++++++++++-
+ .../spacemit_prologue_epilogue_reg_ascend.c   | 34 +++++++++++
+ 2 files changed, 91 insertions(+), 3 deletions(-)
+ create mode 100644 src/gcc/testsuite/gcc.target/riscv/spacemit_prologue_epilogue_reg_ascend.c
+
+diff --git a/src/gcc/config/riscv/riscv.cc b/src/gcc/config/riscv/riscv.cc
+index 3a15c0ecf..c82f806e9 100644
+--- a/src/gcc/config/riscv/riscv.cc
++++ b/src/gcc/config/riscv/riscv.cc
+@@ -278,6 +278,8 @@ enum riscv_fusion_pairs
+   RISCV_FUSE_AUIPC_LD = (1 << 7),
+   RISCV_FUSE_LDPREINCREMENT = (1 << 8),
+   RISCV_FUSE_ALIGNED_STD = (1 << 9),
++  RISCV_FUSE_LDPAIR_ASCEND = (1 << 10),
++  RISCV_FUSE_LDPAIR_DSCEND = (1 << 11),
+ };
+ 
+ /* Costs of various operations on the different architectures.  */
+@@ -340,6 +342,9 @@ poly_uint16 riscv_vector_chunks;
+ /* The number of bytes in a vector chunk.  */
+ unsigned riscv_bytes_per_vector_chunk;
+ 
++static bool
++riscv_fusion_enabled_p(enum riscv_fusion_pairs op);
++
+ /* Index R is the smallest register class that contains register R.  */
+ const enum reg_class riscv_regno_to_class[FIRST_PSEUDO_REGISTER] = {
+   GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
+@@ -661,7 +666,9 @@ static const struct riscv_tune_param spacemit_x60_tune_info = {
+   false,					/* overlap_op_by_pieces */
+   RISCV_FUSE_AUIPC_ADDI |
+   RISCV_FUSE_LUI_ADDI |
+-  RISCV_FUSE_LUI_LD,		/* fusible_ops */
++  RISCV_FUSE_LUI_LD |
++  RISCV_FUSE_LDPAIR_ASCEND |
++  RISCV_FUSE_LDPREINCREMENT,			/* fusible_ops */
+   &generic_vector_cost,		/* vector cost */
+   NULL,						/* function_align */
+   NULL,						/* jump_align */
+@@ -8102,10 +8109,34 @@ riscv_save_restore_reg (machine_mode mode, int regno,
+    If INC is set, then REGNO will be incremented first.
+    Returns INVALID_REGNUM if there is no such next register.  */
+ 
++static unsigned int
++riscv_next_saved_reg_ascend (unsigned int regno, unsigned int limit,
++			     HOST_WIDE_INT *offset, bool dec = true)
++{
++  if (dec)
++    regno--;
++
++  while (regno <= limit)
++    {
++      if (BITSET_P (cfun->machine->frame.mask, regno - GP_REG_FIRST))
++	{
++	  *offset = *offset + UNITS_PER_WORD;
++	  return regno;
++	}
++
++      regno--;
++    }
++  return INVALID_REGNUM;
++}
++
+ static unsigned int
+ riscv_next_saved_reg (unsigned int regno, unsigned int limit,
+ 		      HOST_WIDE_INT *offset, bool inc = true)
+ {
++  if (riscv_fusion_enabled_p (RISCV_FUSE_LDPAIR_ASCEND)
++      && !riscv_fusion_enabled_p (RISCV_FUSE_LDPAIR_DSCEND))
++    return riscv_next_saved_reg_ascend (regno, limit, offset, inc);
++
+   if (inc)
+     regno++;
+ 
+@@ -8150,13 +8181,27 @@ riscv_for_each_saved_reg (poly_int64 sp_offset, riscv_save_restore_fn fn,
+ 			  bool epilogue, bool maybe_eh_return, bool sibcall_p)
+ {
+   HOST_WIDE_INT offset, first_fp_offset;
++
+   unsigned int regno, num_masked_fp = 0;
+   unsigned int start = GP_REG_FIRST;
+   unsigned int limit = GP_REG_LAST;
+ 
++  unsigned int fpstart = FP_REG_FIRST;
++  int gpnum = __builtin_popcount(cfun->machine->frame.mask);
++  int fpnum = __builtin_popcount(cfun->machine->frame.fmask);
++
++  bool ascend = riscv_fusion_enabled_p (RISCV_FUSE_LDPAIR_ASCEND)
++		&& !riscv_fusion_enabled_p (RISCV_FUSE_LDPAIR_DSCEND);
++
+   /* Save the link register and s-registers. */
+   offset = (cfun->machine->frame.gp_sp_offset - sp_offset).to_constant ()
+ 	   + UNITS_PER_WORD;
++  if (ascend)
++    {
++      offset -= (gpnum + 1) *  UNITS_PER_WORD;
++      start = GP_REG_LAST;
++    }
++
+   for (regno = riscv_next_saved_reg (start, limit, &offset, false);
+        regno != INVALID_REGNUM;
+        regno = riscv_next_saved_reg (regno, limit, &offset))
+@@ -8247,7 +8292,13 @@ riscv_for_each_saved_reg (poly_int64 sp_offset, riscv_save_restore_fn fn,
+      riscv_compute_frame_info.  */
+   first_fp_offset
+     = (cfun->machine->frame.fp_sp_offset - sp_offset).to_constant ();
+-  for (unsigned int regno = FP_REG_FIRST; regno <= FP_REG_LAST; regno++)
++  if (ascend)
++    {
++      first_fp_offset -= (fpnum > 0 ? fpnum - 1 : 0) *  UNITS_PER_WORD;
++      fpstart = FP_REG_LAST;
++    }
++  for (unsigned int regno = fpstart; regno <= FP_REG_LAST;
++       ascend ? regno-- : regno++)
+     if (BITSET_P (cfun->machine->frame.fmask, regno - FP_REG_FIRST))
+       {
+ 	bool handle_reg = !cfun->machine->reg_is_wrapped_separately[regno];
+@@ -8255,7 +8306,10 @@ riscv_for_each_saved_reg (poly_int64 sp_offset, riscv_save_restore_fn fn,
+ 	unsigned int slot = (riscv_use_multi_push (&cfun->machine->frame))
+ 			      ? CALLEE_SAVED_FREG_NUMBER (regno)
+ 			      : num_masked_fp;
+-	offset = first_fp_offset - slot * GET_MODE_SIZE (mode).to_constant ();
++	if (ascend)
++	  offset = first_fp_offset + slot * GET_MODE_SIZE (mode).to_constant ();
++	else
++	  offset = first_fp_offset - slot * GET_MODE_SIZE (mode).to_constant ();
+ 	if (handle_reg)
+ 	  riscv_save_restore_reg (mode, regno, offset, fn);
+ 	num_masked_fp++;
+diff --git a/src/gcc/testsuite/gcc.target/riscv/spacemit_prologue_epilogue_reg_ascend.c b/src/gcc/testsuite/gcc.target/riscv/spacemit_prologue_epilogue_reg_ascend.c
+new file mode 100644
+index 000000000..888de0b5c
+--- /dev/null
++++ b/src/gcc/testsuite/gcc.target/riscv/spacemit_prologue_epilogue_reg_ascend.c
+@@ -0,0 +1,34 @@
++/* { dg-do compile } */
++/* { dg-options "-mcpu=spacemit-x60" } */
++/* { dg-skip-if "" { *-*-* } {"-O3" "-Os" "-O1" "-O0" "-Og" "-Oz" "-flto"} } */
++
++double a[32];
++int b[32];
++
++double call1(double, double, double, double);
++double call2(double, double, double, double);
++
++int call3(int, int, int, int);
++int call4(int, int, int, int);
++
++void test(int *in1, int *in2, double *fin1, double *fin2) {
++  double t0 = a[15] - a[0];
++  double t1 = a[14] - a[1];
++  double t2 = a[13] - a[2];
++  double t3 = a[12] - a[3];
++
++  double i0 = b[15] - b[0];
++  double i1 = b[14] - b[1];
++  double i2 = b[13] - b[2];
++  double i3 = b[12] - b[3];
++
++  t0 += call1(t0, t1, t2, t3);
++  t1 += call2(t0, t1, t2, t3);
++  *fin1 = t0;
++  *fin2 = t1;
++
++  i0 += call3(i0, i1, i2, i3);
++  i1 += call4(i0, i1, i2, i3);
++  *in1 = i0;
++  *in2 = i1;
++}
+-- 
+2.34.1
+

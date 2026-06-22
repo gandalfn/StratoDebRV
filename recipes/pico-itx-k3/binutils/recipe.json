@@ -1,0 +1,13 @@
+{
+    "name": "BinUtils",
+    "package": "binutils",
+    "version": "2.44",
+    "patches": [
+        "0024-Sync-change-from-bianbu-26.04-2.46-3ubuntu1bb1.patch"
+    ],
+    "install": {
+        "packages": {
+            "{buildPath}/*.deb": "{outputPath}"
+        }
+    }
+}

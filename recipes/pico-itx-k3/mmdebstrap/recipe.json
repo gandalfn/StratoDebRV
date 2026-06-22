@@ -1,0 +1,27 @@
+{
+    "name": "MMDebstrap",
+    "mirror": "http://deb.debian.org/debian",
+    "arch": "riscv64",
+    "packages": [
+        "sudo",
+        "dbus",
+        "dosfstools",
+        "busybox",
+        "bsdextrautils",
+        "kmod",
+        "udev",
+        "openssh-server",
+        "openssh-client",
+        "systemd-resolved",
+        "device-tree-compiler",
+        "ca-certificates",
+        "apt-transport-https",
+        "fakeroot",
+        "fakechroot"
+    ],
+    "install": {
+        "files": {
+            "{buildPath}/rootfs.tar.xz": "{outputPath}/rootfs.tar.xz"
+        }
+    }
+}

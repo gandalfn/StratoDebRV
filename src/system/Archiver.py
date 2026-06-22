@@ -24,7 +24,7 @@ class Archiver:
     def __init__(self, context: str):
         self.__log = Log(f"{context}.Archiver")
 
-    def extract(self, archivePath: str, destPath: str) -> bool:
+    def extract(self, archivePath: str, destPath: str, fakeRoot: bool = False) -> bool:
         self.__log.info(f"Extract archive {os.path.basename(archivePath)}...")
         
         if not os.path.exists(archivePath):
@@ -33,12 +33,15 @@ class Archiver:
 
         os.makedirs(destPath, exist_ok=True)
 
-        cmd = [
+        cmd = []
+        if fakeRoot:
+            cmd.append("fakeroot")
+        cmd.extend([
             "tar", 
             "-xf", archivePath, 
             "-C", destPath, 
             "--strip-components=1"
-        ]
+        ])
 
         try:
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

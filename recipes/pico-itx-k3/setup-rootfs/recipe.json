@@ -1,0 +1,4 @@
+{
+    "name": "SetupRootFS",
+    "mirror": "http://deb.debian.org/debian"
+}

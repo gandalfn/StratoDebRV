@@ -33,7 +33,7 @@ def main(ROOT_DIR):
         mainConfig = Main(str(ROOT_DIR))
     
         log.info(f"Loading board configuration for {mainConfig.board}...")
-        boardConfig = Board(str(ROOT_DIR), mainConfig.board)
+        boardConfig = Board(str(ROOT_DIR), mainConfig.board, mainConfig.debian)
 
         log.info("Fetching strata...")        
         for stratum in boardConfig.strata:

@@ -1,0 +1,337 @@
+From f4b5ab98f727ce49ac8c78e7abbe8da9a0a7ebad Mon Sep 17 00:00:00 2001
+From: Mark Zhuang <mark.zhuang@spacemit.com>
+Date: Mon, 20 Oct 2025 18:09:07 +0800
+Subject: [PATCH 4/8] Support spacemit cores
+
+---
+ src/gcc/config/riscv/riscv-cores.def |  32 +++++++
+ src/gcc/config/riscv/riscv-opts.h    |   5 +-
+ src/gcc/config/riscv/riscv.cc        |  70 ++++++++++++++
+ src/gcc/config/riscv/riscv.md        |   2 +-
+ src/gcc/config/riscv/spacemit-x60.md | 131 +++++++++++++++++++++++++++
+ src/gcc/doc/invoke.texi              |   4 +-
+ 6 files changed, 240 insertions(+), 4 deletions(-)
+ create mode 100644 src/gcc/config/riscv/spacemit-x60.md
+
+diff --git a/src/gcc/config/riscv/riscv-cores.def b/src/gcc/config/riscv/riscv-cores.def
+index 2918496bc..a49d28907 100644
+--- a/src/gcc/config/riscv/riscv-cores.def
++++ b/src/gcc/config/riscv/riscv-cores.def
+@@ -43,6 +43,9 @@ RISCV_TUNE("tt-ascalon-d8", generic_ooo, tt_ascalon_d8_tune_info)
+ RISCV_TUNE("thead-c906", generic, thead_c906_tune_info)
+ RISCV_TUNE("xiangshan-nanhu", xiangshan, xiangshan_nanhu_tune_info)
+ RISCV_TUNE("generic-ooo", generic_ooo, generic_ooo_tune_info)
++RISCV_TUNE("spacemit-a100", generic, spacemit_a100_tune_info)
++RISCV_TUNE("spacemit-x60", generic, spacemit_x60_tune_info)
++RISCV_TUNE("spacemit-x100", generic_ooo, spacemit_x100_tune_info)
+ RISCV_TUNE("size", generic, optimize_size_tune_info)
+ 
+ #undef RISCV_TUNE
+@@ -88,6 +91,33 @@ RISCV_CORE("sifive-p670",     "rv64imafdcv_za64rs_zic64b_zicbom_zicbop_zicboz_"
+ 			      "zvl128b_zvbb_zvknc_zvkng_zvksc_zvksg",
+ 			      "sifive-p600-series")
+ 
++RISCV_CORE("spacemit-a100",   "rv64imafdcv_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_"
++			      "ziccamoa_ziccif_zicclsm_ziccrse_zicsr_zifencei_zihintntl_svpbmt_"
++			      "smepmp_sstc_sscofpmf_zicond_zicboz_zicbom_zicbop_zicntr_"
++			      "zihpm_za64rs_zkt_svinval_svnapot_zihintpause_zbkc_"
++			      "zvfh_zvfhmin_zvl1024b_"
++			      "zfa_zca_zcb_zcd_zvbb_zvkng_zvknha_smstateen_ssstateen_zfbfmin_"
++			      "zvfbfmin_zvfbfwma_zimop_zcmop_smnpm_ssnpm_sspm_zawrs_"
++			      "zvknc_zvksc_zvksg_supm",
++			      "spacemit-a100")
++
++RISCV_CORE("spacemit-x60",    "rv64imafdcv_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_"
++			      "ziccamoa_ziccif_zicclsm_ziccrse_zicsr_zifencei_zihintntl_svpbmt_"
++			      "smepmp_sstc_sscofpmf_zicond_zicboz_zicbom_zicbop_zicntr_"
++			      "zihpm_za64rs_zkt_svinval_svnapot_zihintpause_zbkc_"
++			      "zvfh_zvfhmin_zvl256b",
++			      "spacemit-x60")
++
++RISCV_CORE("spacemit-x100",   "rv64imafdcvh_zic64b_zba_zbb_zbc_zbs_zfh_zfhmin_"
++			      "ziccamoa_ziccif_zicclsm_ziccrse_zicsr_zifencei_zihintntl_svpbmt_"
++			      "smepmp_sstc_sscofpmf_zicond_zicboz_zicbom_zicbop_zicntr_"
++			      "zihpm_za64rs_zkt_svinval_svnapot_zihintpause_zbkc_"
++			      "zvfh_zvfhmin_zvl256b_"
++			      "zfa_zca_zcb_zcd_zvbb_zvkng_zvknha_smstateen_ssstateen_zfbfmin_"
++			      "zvfbfmin_zvfbfwma_zimop_zcmop_smnpm_ssnpm_sspm_zawrs_"
++			      "zvknc_zvksc_zvksg_supm",
++			      "spacemit-x100")
++
+ RISCV_CORE("thead-c906",      "rv64imafdc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_"
+ 			      "xtheadcondmov_xtheadfmemidx_xtheadmac_"
+ 			      "xtheadmemidx_xtheadmempair_xtheadsync",
+@@ -104,4 +134,6 @@ RISCV_CORE("xiangshan-nanhu",      "rv64imafdc_zba_zbb_zbc_zbs_"
+ 			      "zbkb_zbkc_zbkx_zknd_zkne_zknh_zksed_zksh_"
+ 			      "svinval_zicbom_zicboz",
+ 			      "xiangshan-nanhu")
++
++
+ #undef RISCV_CORE
+diff --git a/src/gcc/config/riscv/riscv-opts.h b/src/gcc/config/riscv/riscv-opts.h
+index 26fe228e0..34e591060 100644
+--- a/src/gcc/config/riscv/riscv-opts.h
++++ b/src/gcc/config/riscv/riscv-opts.h
+@@ -57,8 +57,11 @@ enum riscv_microarchitecture_type {
+   sifive_7,
+   sifive_p400,
+   sifive_p600,
++  spacemit_a100,
++  spacemit_x60,
++  spacemit_x100,
+   xiangshan,
+-  generic_ooo
++  generic_ooo,
+ };
+ extern enum riscv_microarchitecture_type riscv_microarchitecture;
+ 
+diff --git a/src/gcc/config/riscv/riscv.cc b/src/gcc/config/riscv/riscv.cc
+index d3520af1c..3a15c0ecf 100644
+--- a/src/gcc/config/riscv/riscv.cc
++++ b/src/gcc/config/riscv/riscv.cc
+@@ -620,6 +620,76 @@ static const struct riscv_tune_param tt_ascalon_d8_tune_info = {
+   NULL,						/* loop_align */
+ };
+ 
++/* Costs to use when optimizing for Spacemit a100.  */
++static const struct riscv_tune_param spacemit_a100_tune_info = {
++  {COSTS_N_INSNS (3), COSTS_N_INSNS (3)},	/* fp_add */
++  {COSTS_N_INSNS (4), COSTS_N_INSNS (5)},	/* fp_mul */
++  {COSTS_N_INSNS (20), COSTS_N_INSNS (20)},	/* fp_div */
++  {COSTS_N_INSNS (4), COSTS_N_INSNS (4)},	/* int_mul */
++  {COSTS_N_INSNS (14), COSTS_N_INSNS (22)},	/* int_div */
++  2,						/* issue_rate */
++  3,						/* branch_cost */
++  3,						/* memory_cost */
++  3,						/* fmv_cost */
++  false,					/* slow_unaligned_access */
++  true,						/* vector_unaligned_access */
++  false,					/* use_divmod_expansion */
++  false,					/* overlap_op_by_pieces */
++  RISCV_FUSE_AUIPC_ADDI |
++  RISCV_FUSE_LUI_ADDI |
++  RISCV_FUSE_LUI_LD,		/* fusible_ops */
++  &generic_vector_cost,		/* vector cost */
++  NULL,						/* function_align */
++  NULL,						/* jump_align */
++  NULL,						/* loop_align */
++};
++
++/* Costs to use when optimizing for Spacemit x60.  */
++static const struct riscv_tune_param spacemit_x60_tune_info = {
++  {COSTS_N_INSNS (3), COSTS_N_INSNS (3)},	/* fp_add */
++  {COSTS_N_INSNS (4), COSTS_N_INSNS (5)},	/* fp_mul */
++  {COSTS_N_INSNS (20), COSTS_N_INSNS (20)},	/* fp_div */
++  {COSTS_N_INSNS (4), COSTS_N_INSNS (4)},	/* int_mul */
++  {COSTS_N_INSNS (14), COSTS_N_INSNS (22)},	/* int_div */
++  2,						/* issue_rate */
++  3,						/* branch_cost */
++  3,						/* memory_cost */
++  3,						/* fmv_cost */
++  false,					/* slow_unaligned_access */
++  false,					/* vector_unaligned_access */
++  false,					/* use_divmod_expansion */
++  false,					/* overlap_op_by_pieces */
++  RISCV_FUSE_AUIPC_ADDI |
++  RISCV_FUSE_LUI_ADDI |
++  RISCV_FUSE_LUI_LD,		/* fusible_ops */
++  &generic_vector_cost,		/* vector cost */
++  NULL,						/* function_align */
++  NULL,						/* jump_align */
++  NULL,						/* loop_align */
++};
++
++/* Costs to use when optimizing for Spacemit x100.  */
++static const struct riscv_tune_param spacemit_x100_tune_info = {
++  {COSTS_N_INSNS (3), COSTS_N_INSNS (3)}, /* fp_add */
++  {COSTS_N_INSNS (4), COSTS_N_INSNS (4)}, /* fp_mul */
++  {COSTS_N_INSNS (12), COSTS_N_INSNS (20)}, /* fp_div */
++  {COSTS_N_INSNS (4), COSTS_N_INSNS (4)}, /* int_mul */
++  {COSTS_N_INSNS (14), COSTS_N_INSNS (22)}, /* int_div */
++  4,						/* issue_rate */
++  3,						/* branch_cost */
++  3,						/* memory_cost */
++  3,						/* fmv_cost */
++  false,					/* slow_unaligned_access */
++  true,						/* vector_unaligned_access */
++  false,					/* use_divmod_expansion */
++  false,					/* overlap_op_by_pieces */
++  RISCV_FUSE_NOTHING,		/* fusible_ops */
++  &generic_vector_cost,		/* vector cost */
++  NULL,						/* function_align */
++  NULL,						/* jump_align */
++  NULL,						/* loop_align */
++};
++
+ /* Costs to use when optimizing for size.  */
+ static const struct riscv_tune_param optimize_size_tune_info = {
+   {COSTS_N_INSNS (1), COSTS_N_INSNS (1)},	/* fp_add */
+diff --git a/src/gcc/config/riscv/riscv.md b/src/gcc/config/riscv/riscv.md
+index db281ab4d..4b4c7b993 100644
+--- a/src/gcc/config/riscv/riscv.md
++++ b/src/gcc/config/riscv/riscv.md
+@@ -669,7 +669,7 @@
+ ;; Microarchitectures we know how to tune for.
+ ;; Keep this in sync with enum riscv_microarchitecture.
+ (define_attr "tune"
+-  "generic,sifive_7,sifive_p400,sifive_p600,xiangshan,generic_ooo"
++  "generic,sifive_7,sifive_p400,sifive_p600,spacemit_a100,spacemit_x60,spacemit_x100,xiangshan,generic_ooo"
+   (const (symbol_ref "((enum attr_tune) riscv_microarchitecture)")))
+ 
+ ;; Describe a user's asm statement.
+diff --git a/src/gcc/config/riscv/spacemit-x60.md b/src/gcc/config/riscv/spacemit-x60.md
+new file mode 100644
+index 000000000..b28ac07da
+--- /dev/null
++++ b/src/gcc/config/riscv/spacemit-x60.md
+@@ -0,0 +1,131 @@
++;; Scheduling pipeline description for Spacemit X60 RISC-V.
++;; Copyright (C) 2023 Free Software Foundation, Inc.
++
++;; This file is part of GCC.
++
++;; GCC is free software; you can redistribute it and/or modify it
++;; under the terms of the GNU General Public License as published
++;; by the Free Software Foundation; either version 3, or (at your
++;; option) any later version.
++
++;; GCC is distributed in the hope that it will be useful, but WITHOUT
++;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++;; or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
++;; License for more details.
++
++;; You should have received a copy of the GNU General Public License
++;; along with GCC; see the file COPYING3.  If not see
++;; <http://www.gnu.org/licenses/>.
++
++(define_automaton "spacemit_x60_alu")
++(define_automaton "spacemit_x60_falu")
++
++;; Spacemit X60 Base Core
++;; 14 conceptual units of the processor:
++(define_cpu_unit "spacemit_x60_alu1,spacemit_x60_alu2" "spacemit_x60_alu")
++(define_cpu_unit "spacemit_x60_falu1,spacemit_x60_falu2" "spacemit_x60_falu")
++(define_cpu_unit "spacemit_x60_mul" "spacemit_x60_alu")
++(define_cpu_unit "spacemit_x60_div" "spacemit_x60_alu")
++(define_cpu_unit "spacemit_x60_bju" "spacemit_x60_alu")
++(define_cpu_unit "spacemit_x60_load" "spacemit_x60_alu")
++(define_cpu_unit "spacemit_x60_fload" "spacemit_x60_falu")
++(define_cpu_unit "spacemit_x60_store" "spacemit_x60_alu")
++(define_cpu_unit "spacemit_x60_fstore" "spacemit_x60_falu")
++(define_cpu_unit "spacemit_x60_csr" "spacemit_x60_alu")
++(define_cpu_unit "spacemit_x60_fmau" "spacemit_x60_falu")
++(define_cpu_unit "spacemit_x60_fdsu" "spacemit_x60_falu")
++(define_cpu_unit "spacemit_x60_fspu" "spacemit_x60_falu")
++(define_cpu_unit "spacemit_x60_fcvt" "spacemit_x60_falu")
++
++(define_reservation "spacemit_x60_alu" "spacemit_x60_alu1|spacemit_x60_alu2")
++(define_reservation "spacemit_x60_falu" "spacemit_x60_falu1|spacemit_x60_falu2")
++(define_reservation "spacemit_x60_loadstore" "spacemit_x60_load+spacemit_x60_store")
++(define_reservation "spacemit_x60_floadload" "spacemit_x60_fload+spacemit_x60_load")
++(define_reservation "spacemit_x60_fstorestore" "spacemit_x60_fstore+spacemit_x60_store")
++
++(define_insn_reservation "spacemit_x60_alu" 1
++  (and (eq_attr "tune" "spacemit_x60")
++        (eq_attr "type" "unknown,arith,slt,shift,logical,move,nop,bitmanip"))
++   "spacemit_x60_alu")
++
++(define_insn_reservation "spacemit_x60_falu" 3
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "fadd,fcmp"))
++    "spacemit_x60_falu")
++
++(define_insn_reservation "spacemit_x60_imul" 4
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "imul"))
++    "spacemit_x60_mul")
++
++(define_insn_reservation "spacemit_x60_idivsi" 14
++  (and (eq_attr "tune" "spacemit_x60")
++       (and (eq_attr "type" "idiv")
++	    (eq_attr "mode" "SI")))
++    "spacemit_x60_div*14")
++
++(define_insn_reservation "spacemit_x60_idivdi" 22
++  (and (eq_attr "tune" "spacemit_x60")
++       (and (eq_attr "type" "idiv")
++	    (eq_attr "mode" "DI")))
++    "spacemit_x60_div*22")
++
++(define_insn_reservation "spacemit_x60_bju" 2
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "jump,branch,auipc"))
++    "spacemit_x60_bju")
++
++(define_insn_reservation "spacemit_x60_load" 3
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "load"))
++    "spacemit_x60_load")
++
++(define_insn_reservation "spacemit_x60_store" 1
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "store"))
++    "spacemit_x60_store")
++
++(define_insn_reservation "spacemit_x60_csr" 0
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "trap"))
++    "spacemit_x60_csr")
++
++(define_insn_reservation "spacemit_x60_fmul_double" 4
++  (and (eq_attr "tune" "spacemit_x60")
++       (eq_attr "type" "fmul"))
++    "spacemit_x60_fmau")
++
++(define_insn_reservation "spacemit_x60_fmuladd_double" 5
++  (and (eq_attr "tune" "spacemit_x60")
++       (eq_attr "type" "fmadd"))
++    "spacemit_x60_fmau")
++
++(define_insn_reservation "spacemit_x60_fdivsqrt_double" 20
++  (and (eq_attr "tune" "spacemit_x60")
++       (eq_attr "type" "fdiv,fsqrt"))
++    "spacemit_x60_fdsu*20")
++
++(define_insn_reservation "spacemit_x60_fmove_double" 3
++  (and (eq_attr "tune" "spacemit_x60")
++       (eq_attr "type" "fmove"))
++    "spacemit_x60_fspu")
++
++(define_insn_reservation "spacemit_x60_trunc" 3
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "fcvt"))
++    "spacemit_x60_fcvt")
++
++(define_insn_reservation "spacemit_x60_atomic" 4
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "atomic"))
++    "spacemit_x60_loadstore")
++
++(define_insn_reservation "spacemit_x60_fload" 4
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "fpload"))
++    "spacemit_x60_floadload")
++
++(define_insn_reservation "spacemit_x60_fstore" 1
++  (and (eq_attr "tune" "spacemit_x60")
++         (eq_attr "type" "fpstore"))
++    "spacemit_x60_fstorestore")
+\ No newline at end of file
+diff --git a/src/gcc/doc/invoke.texi b/src/gcc/doc/invoke.texi
+index 3f5ff23ec..d54502312 100644
+--- a/src/gcc/doc/invoke.texi
++++ b/src/gcc/doc/invoke.texi
+@@ -31669,8 +31669,8 @@ Permissible values for this option are: @samp{sifive-e20}, @samp{sifive-e21},
+ @samp{sifive-e24}, @samp{sifive-e31}, @samp{sifive-e34}, @samp{sifive-e76},
+ @samp{sifive-s21}, @samp{sifive-s51}, @samp{sifive-s54}, @samp{sifive-s76},
+ @samp{sifive-u54}, @samp{sifive-u74}, @samp{sifive-x280}, @samp{sifive-xp450},
+-@samp{sifive-x670}, @samp{thead-c906}, @samp{tt-ascalon-d8},
+-@samp{xiangshan-nanhu}.
++@samp{sifive-x670}, @samp{spacemit-a100}, @samp{spacemit-x60}, @samp{spacemit-x100},
++@samp{thead-c906}, @samp{tt-ascalon-d8}, @samp{xiangshan-nanhu}.
+ 
+ Note that @option{-mcpu} does not override @option{-march} or @option{-mtune}.
+ 
+-- 
+2.34.1
+

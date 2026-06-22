@@ -56,7 +56,7 @@ class Log:
             
             sys.stdout.flush()
             print(
-                f"[{timestamp}] {color}{self.__bold}{levelName}{self.__reset}  "
+                f"\r[{timestamp}] {color}{self.__bold}{levelName}{self.__reset}  "
                 f"[{self.__context}] {message}",
                 file=stream
             )

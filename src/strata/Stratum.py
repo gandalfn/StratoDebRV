@@ -105,6 +105,10 @@ class Stratum:
     def recipes(self):
         return self.__recipes.values()
     
+    @property
+    def outputPath(self):
+        return f"{self.__root}/output/{self.__board.name}/{self.__name}"
+    
     def __getitem__(self, key):
         return self.__recipes[key]
     
@@ -135,7 +139,7 @@ class Stratum:
                     return False
                 if not recipe.build():
                     return False
-                if not recipe.install(f"{self.__root}/output/{self.__board.name}/{self.__name}"):
+                if not recipe.install(self.outputPath):
                     return False
             self.__stamps.done(f"{self.__log.context}", Step.BUILD)
         return True
@@ -145,16 +149,16 @@ class Stratum:
         if not self.__stamps.isDone(f"{self.__log.context}", Step.INSTALL):
             files = self.__install.get('files', {})
             for srcFile, dstFile in files.items():
-                src = srcFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
-                dst = dstFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
+                src = srcFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=self.outputPath)
+                dst = dstFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=self.outputPath)
                 self.__log.info(f"Copying {src} to {dst}...")
                 if not Fs.cp(src, dst):
                     self.__log.error(f"Failed to copy {src} to {dst}")
                     return False
             packages = self.__install.get('packages', {})
             for srcFile, dstFile in packages.items():
-                src = srcFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
-                dst = dstFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=f"{self.__root}/output/{self.__board.name}/{self.__name}")
+                src = srcFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=self.outputPath)
+                dst = dstFile.format(stratumPath=self.__stratumPath, rootPath=self.__root, outputPath=self.outputPath)
                 self.__log.info(f"Copying {src} to {dst}...")
                 if not Fs.cp(src, dst):
                     self.__log.error(f"Failed to copy {src} to {dst}")
